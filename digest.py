@@ -23,6 +23,35 @@ FEEDS = {
     "DD News":         "https://ddnews.gov.in/en/feed/",
 }
 
+# Sources that are narrowly focused on one category — cap them at 3 articles
+# to prevent Economy / International Relations from dominating the digest.
+SPECIALIST_SOURCES = {"Economic Times", "LiveMint", "BBC World"}
+
+# Expansion feeds used only when a category has zero articles after the first
+# classify pass. Keyed by UPSC topic name.
+EXPANSION_FEEDS = {
+    "Environment & Ecology": [
+        "https://www.downtoearth.org.in/rss/all",
+        "https://thewire.in/category/environment/feed",
+    ],
+    "Science & Technology": [
+        "https://thewire.in/category/science/feed",
+        "https://www.thehindu.com/sci-tech/feeder/default.rss",
+    ],
+    "Security & Defence": [
+        "https://theprint.in/category/defence/feed/",
+        "https://www.thehindu.com/news/national/feeder/default.rss",
+    ],
+    "History & Culture": [
+        "https://thewire.in/category/culture/feed",
+        "https://scroll.in/section/arts/feed",
+    ],
+    "Social Issues": [
+        "https://thewire.in/category/rights/feed",
+        "https://theprint.in/category/health/feed/",
+    ],
+}
+
 TOPIC_COLORS = {
     "International Relations": "#c0392b",
     "Economy": "#27ae60",
@@ -48,27 +77,32 @@ TOPIC_ORDER = [
 ]
 
 
+def fetch_from_feed(url, source_name, limit=3):
+    """Fetch up to `limit` articles from a single RSS feed URL."""
+    articles = []
+    try:
+        feed = feedparser.parse(url)
+        for entry in feed.entries[:limit]:
+            summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
+            articles.append({
+                "title": entry.get("title", ""),
+                "link":  entry.get("link", ""),
+                "summary": summary,
+                "source": source_name,
+            })
+        print(f"  [{source_name}] fetched {len(articles)} articles")
+    except Exception as e:
+        print(f"  [{source_name}] ERROR: {e}")
+    return articles
+
+
 def fetch_articles():
     articles = []
     for source, url in FEEDS.items():
-        try:
-            feed = feedparser.parse(url)
-            entries = feed.entries[:3]
-            for entry in entries:
-                summary = ""
-                if hasattr(entry, "summary"):
-                    summary = entry.summary
-                elif hasattr(entry, "description"):
-                    summary = entry.description
-                articles.append({
-                    "title": entry.get("title", ""),
-                    "link": entry.get("link", ""),
-                    "summary": summary,
-                    "source": source,
-                })
-            print(f"  [{source}] fetched {len(entries)} articles")
-        except Exception as e:
-            print(f"  [{source}] ERROR fetching feed: {e}")
+        # Specialist sources (economy/international-only feeds) are capped at 3
+        # so they don't crowd out other categories. General sources get 5.
+        limit = 3 if source in SPECIALIST_SOURCES else 5
+        articles.extend(fetch_from_feed(url, source, limit))
     return articles
 
 
@@ -293,6 +327,34 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"FATAL: Groq classification failed: {e}")
         raise
+
+    # --- Expansion pass: fill categories that got zero articles ---
+    covered = {a["topic"] for a in classified}
+    missing = [t for t in TOPIC_ORDER if t not in covered and t in EXPANSION_FEEDS]
+    if missing:
+        print(f"\n[2b/4] Expansion fetch for missing categories: {', '.join(missing)}")
+        expansion_articles = []
+        for topic in missing:
+            for url in EXPANSION_FEEDS[topic]:
+                source_name = url.split("/")[2]  # e.g. thewire.in
+                expansion_articles.extend(fetch_from_feed(url, source_name, limit=3))
+
+        if expansion_articles:
+            print(f"  Classifying {len(expansion_articles)} expansion articles...")
+            try:
+                extra_classified, extra_angles = classify_articles(expansion_articles)
+                # Only absorb articles for categories still missing after pass 1
+                still_missing = {t for t in TOPIC_ORDER if t not in covered}
+                added = 0
+                for a in extra_classified:
+                    if a["topic"] in still_missing:
+                        classified.append(a)
+                        covered.add(a["topic"])
+                        added += 1
+                category_angles.update(extra_angles)
+                print(f"  Added {added} articles from expansion feeds")
+            except Exception as e:
+                print(f"  WARNING: Expansion classification failed: {e}")
 
     if not classified:
         print("No UPSC-relevant articles found. Exiting without sending email.")
