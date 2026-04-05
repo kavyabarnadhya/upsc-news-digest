@@ -1,7 +1,9 @@
 import os
+import re
 import json
 import smtplib
 import ssl
+import html
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import collections
@@ -185,37 +187,51 @@ def render_html(grouped, category_angles):
     index_bar_items = ""
     for topic in topics_present:
         color = TOPIC_COLORS[topic]
-        anchor = topic.replace(" ", "-").replace("&", "and").lower()
+        # Sanitize anchor to only allow alphanumeric characters and hyphens
+        anchor = re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
         index_bar_items += (
             f'<a href="#{anchor}" style="display:inline-block;margin:4px;padding:6px 14px;'
             f'background:{color};color:#fff;border-radius:20px;text-decoration:none;'
-            f'font-size:13px;font-weight:600;">{topic}</a>'
+            f'font-size:13px;font-weight:600;">{html.escape(topic)}</a>'
         )
 
     # Article sections
     sections_html = ""
     for topic in topics_present:
         color = TOPIC_COLORS[topic]
-        anchor = topic.replace(" ", "-").replace("&", "and").lower()
+        # Sanitize anchor to only allow alphanumeric characters and hyphens
+        anchor = re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
         articles = grouped[topic]
 
         cards_html = ""
         for a in articles:
+            # Escape content to prevent XSS
+            safe_title = html.escape(a.get("title", ""))
+            safe_source = html.escape(a.get("source", ""))
+            safe_summary = html.escape(a.get("summary", ""))
+
+            # Simple URL validation: only allow http(s) protocols
+            link = a.get("link", "")
+            if not (link.lower().startswith("http://") or link.lower().startswith("https://")):
+                link = "#"
+            # Escape link to prevent attribute injection
+            safe_link = html.escape(link, quote=True)
+
             cards_html += f"""
             <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
                         padding:18px 20px;margin-bottom:16px;">
               <div style="margin-bottom:8px;">
-                <a href="{a['link']}" style="font-size:17px;font-weight:700;color:#1a1a1a;
-                   text-decoration:none;">{a['title']}</a>
+                <a href="{safe_link}" style="font-size:17px;font-weight:700;color:#1a1a1a;
+                   text-decoration:none;">{safe_title}</a>
               </div>
               <div style="margin-bottom:10px;">
                 <span style="background:#f0f0f0;color:#555;font-size:12px;font-weight:600;
-                             padding:3px 9px;border-radius:12px;">{a['source']}</span>
+                             padding:3px 9px;border-radius:12px;">{safe_source}</span>
               </div>
               <p style="color:#444;font-size:14px;line-height:1.6;margin:0 0 12px 0;">
-                {a['summary']}
+                {safe_summary}
               </p>
-              <a href="{a['link']}" style="color:{color};font-size:13px;font-weight:600;
+              <a href="{safe_link}" style="color:{color};font-size:13px;font-weight:600;
                  text-decoration:none;">Read full article &rarr;</a>
             </div>"""
 
@@ -223,7 +239,7 @@ def render_html(grouped, category_angles):
         angles_html = ""
         if angles:
             bullets = "".join(
-                f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">{b}</li>'
+                f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">{html.escape(b)}</li>'
                 for b in angles
             )
             angles_html = f"""
@@ -238,13 +254,13 @@ def render_html(grouped, category_angles):
         <div id="{anchor}" style="margin-bottom:36px;">
           <h2 style="margin:0 0 16px 0;padding:12px 20px;background:{color};
                      color:#fff;border-radius:6px;font-size:18px;font-weight:700;">
-            {topic}
+            {html.escape(topic)}
           </h2>
           {angles_html}
           {cards_html}
         </div>"""
 
-    html = f"""<!DOCTYPE html>
+    full_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -280,7 +296,7 @@ def render_html(grouped, category_angles):
   </div>
 </body>
 </html>"""
-    return html
+    return full_html
 
 
 def send_email(html_body):
