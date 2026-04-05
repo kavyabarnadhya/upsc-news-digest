@@ -56,12 +56,12 @@ EXPANSION_FEEDS = {
 
 TOPIC_COLORS = {
     "International Relations": "#c0392b",
-    "Economy": "#27ae60",
+    "Economy": "#1e8449",
     "Polity & Governance": "#2980b9",
     "Security & Defence": "#8e44ad",
     "History & Culture": "#d35400",
-    "Environment & Ecology": "#16a085",
-    "Social Issues": "#7f8c8d",
+    "Environment & Ecology": "#117864",
+    "Social Issues": "#515a5a",
     "Science & Technology": "#2c3e50",
 }
 
@@ -231,7 +231,8 @@ def render_html(grouped, category_angles):
               <p style="color:#444;font-size:14px;line-height:1.6;margin:0 0 12px 0;">
                 {safe_summary}
               </p>
-              <a href="{safe_link}" style="color:{color};font-size:13px;font-weight:600;
+              <a href="{safe_link}" aria-label="Read full article: {safe_title}"
+                 style="color:{color};font-size:13px;font-weight:600;
                  text-decoration:none;">Read full article &rarr;</a>
             </div>"""
 
@@ -245,8 +246,8 @@ def render_html(grouped, category_angles):
             angles_html = f"""
           <div style="background:#fefce8;border-left:4px solid #f59e0b;
                       padding:12px 16px;border-radius:4px;margin-bottom:20px;">
-            <span style="font-size:12px;font-weight:700;color:#b45309;
-                         text-transform:uppercase;letter-spacing:0.5px;">UPSC Exam Angles</span>
+            <h3 style="margin:0;display:inline;font-size:12px;font-weight:700;color:#b45309;
+                         text-transform:uppercase;letter-spacing:0.5px;">UPSC Exam Angles</h3>
             <ul style="margin:8px 0 0 0;padding-left:18px;">{bullets}</ul>
           </div>"""
 
@@ -258,6 +259,9 @@ def render_html(grouped, category_angles):
           </h2>
           {angles_html}
           {cards_html}
+          <div style="text-align:right;">
+            <a href="#top" style="color:#666;font-size:12px;text-decoration:none;">&uarr; Back to top</a>
+          </div>
         </div>"""
 
     full_html = f"""<!DOCTYPE html>
@@ -268,7 +272,7 @@ def render_html(grouped, category_angles):
   <title>UPSC News Digest – {today}</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
-  <div style="max-width:680px;margin:0 auto;padding:20px;">
+  <div id="top" style="max-width:680px;margin:0 auto;padding:20px;">
 
     <!-- Header -->
     <div style="background:#1a1a2e;border-radius:10px;padding:28px 30px;margin-bottom:24px;text-align:center;">
@@ -279,18 +283,18 @@ def render_html(grouped, category_angles):
     </div>
 
     <!-- Topic Index Bar -->
-    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+    <nav aria-label="Topic index" style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
                 padding:16px 20px;margin-bottom:28px;">
       <p style="margin:0 0 10px 0;font-size:13px;font-weight:700;color:#555;
                 text-transform:uppercase;letter-spacing:0.5px;">Topics in this digest</p>
       <div>{index_bar_items}</div>
-    </div>
+    </nav>
 
     <!-- Article Sections -->
     {sections_html}
 
     <!-- Footer -->
-    <div style="text-align:center;padding:20px;color:#999;font-size:12px;">
+    <div style="text-align:center;padding:20px;color:#5e5e5e;font-size:12px;">
       Generated automatically by UPSC News Digest &bull; Powered by Llama 3.3 via Groq
     </div>
   </div>
