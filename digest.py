@@ -8,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import collections
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 import feedparser
 from dotenv import load_dotenv
@@ -100,11 +101,15 @@ def fetch_from_feed(url, source_name, limit=3):
 
 def fetch_articles():
     articles = []
-    for source, url in FEEDS.items():
-        # Specialist sources (economy/international-only feeds) are capped at 3
-        # so they don't crowd out other categories. General sources get 5.
-        limit = 3 if source in SPECIALIST_SOURCES else 5
-        articles.extend(fetch_from_feed(url, source, limit))
+    with ThreadPoolExecutor(max_workers=len(FEEDS)) as executor:
+        futures = []
+        for source, url in FEEDS.items():
+            # Specialist sources (economy/international-only feeds) are capped at 3
+            # so they don't crowd out other categories. General sources get 5.
+            limit = 3 if source in SPECIALIST_SOURCES else 5
+            futures.append(executor.submit(fetch_from_feed, url, source, limit))
+        for future in futures:
+            articles.extend(future.result())
     return articles
 
 
@@ -354,10 +359,14 @@ if __name__ == "__main__":
     if missing:
         print(f"\n[2b/4] Expansion fetch for missing categories: {', '.join(missing)}")
         expansion_articles = []
-        for topic in missing:
-            for url in EXPANSION_FEEDS[topic]:
-                source_name = url.split("/")[2]  # e.g. thewire.in
-                expansion_articles.extend(fetch_from_feed(url, source_name, limit=3))
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            for topic in missing:
+                for url in EXPANSION_FEEDS[topic]:
+                    source_name = url.split("/")[2]  # e.g. thewire.in
+                    futures.append(executor.submit(fetch_from_feed, url, source_name, limit=3))
+            for future in futures:
+                expansion_articles.extend(future.result())
 
         if expansion_articles:
             print(f"  Classifying {len(expansion_articles)} expansion articles...")
