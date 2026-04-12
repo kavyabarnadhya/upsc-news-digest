@@ -20,6 +20,17 @@ load_dotenv()
 # Set a global timeout for network requests (RSS fetching) to prevent hanging
 socket.setdefaulttimeout(30)
 
+# Initialize Groq client once at the module level for resource reuse
+_groq_client = None
+
+
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        _groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    return _groq_client
+
+
 FEEDS = {
     "The Hindu":       "https://www.thehindu.com/news/national/feeder/default.rss",
     "Indian Express":  "https://indianexpress.com/section/india/feed/",
@@ -118,16 +129,18 @@ def fetch_articles():
 
 
 def classify_articles(articles):
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = get_groq_client()
 
-    articles_text = ""
+    # Optimization: Use list-based join for efficient string building
+    articles_text_parts = []
     for i, a in enumerate(articles):
-        articles_text += (
+        articles_text_parts.append(
             f"\n--- Article {i} ---\n"
             f"Title: {a['title']}\n"
             f"Source: {a['source']}\n"
             f"Summary: {a['summary'][:300]}\n"
         )
+    articles_text = "".join(articles_text_parts)
 
     prompt = f"""You are a UPSC exam preparation assistant focused on the Indian Civil Services Examination.
 
@@ -195,28 +208,33 @@ def render_html(grouped, category_angles):
     total_articles = sum(len(articles) for articles in grouped.values())
     reading_time = max(1, round(total_articles * 0.75))
 
+    # Optimization: Pre-calculate sanitized anchors and use list-based joins for rendering efficiency
+    topic_anchors = {
+        topic: re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
+        for topic in topics_present
+    }
+
     # Topic index bar
-    index_bar_items = ""
+    index_bar_parts = []
     for topic in topics_present:
         color = TOPIC_COLORS[topic]
         count = len(grouped[topic])
-        # Sanitize anchor to only allow alphanumeric characters and hyphens
-        anchor = re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
-        index_bar_items += (
+        anchor = topic_anchors[topic]
+        index_bar_parts.append(
             f'<a href="#{anchor}" style="display:inline-block;margin:4px;padding:6px 14px;'
             f'background:{color};color:#fff;border-radius:20px;text-decoration:none;'
             f'font-size:13px;font-weight:600;">{html.escape(topic)} ({count})</a>'
         )
+    index_bar_items = "".join(index_bar_parts)
 
     # Article sections
-    sections_html = ""
+    sections_parts = []
     for topic in topics_present:
         color = TOPIC_COLORS[topic]
-        # Sanitize anchor to only allow alphanumeric characters and hyphens
-        anchor = re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
+        anchor = topic_anchors[topic]
         articles = grouped[topic]
 
-        cards_html = ""
+        cards_parts = []
         for a in articles:
             # Escape content to prevent XSS
             safe_title = html.escape(a.get("title", ""))
@@ -230,7 +248,7 @@ def render_html(grouped, category_angles):
             # Escape link to prevent attribute injection
             safe_link = html.escape(link, quote=True)
 
-            cards_html += f"""
+            cards_parts.append(f"""
             <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
                         padding:18px 20px;margin-bottom:16px;">
               <div style="margin-bottom:8px;">
@@ -247,7 +265,8 @@ def render_html(grouped, category_angles):
               <a href="{safe_link}" aria-label="Read full article: {safe_title}"
                  style="color:{color};font-size:13px;font-weight:600;
                  text-decoration:none;">Read full article <span aria-hidden="true">&rarr;</span></a>
-            </div>"""
+            </div>""")
+        cards_html = "".join(cards_parts)
 
         angles = category_angles.get(topic, [])
         angles_html = ""
@@ -266,7 +285,7 @@ def render_html(grouped, category_angles):
             <ul style="margin:8px 0 0 0;padding-left:18px;">{bullets}</ul>
           </div>"""
 
-        sections_html += f"""
+        sections_parts.append(f"""
         <div id="{anchor}" style="margin-bottom:36px;">
           <h2 style="margin:0 0 16px 0;padding:12px 20px;background:{color};
                      color:#fff;border-radius:6px;font-size:18px;font-weight:700;">
@@ -277,7 +296,9 @@ def render_html(grouped, category_angles):
           <div style="text-align:right;">
             <a href="#top" style="color:#666;font-size:12px;text-decoration:none;"><span aria-hidden="true">&uarr;</span> Back to top</a>
           </div>
-        </div>"""
+        </div>""")
+
+    sections_html = "".join(sections_parts)
 
     full_html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -370,12 +391,20 @@ if __name__ == "__main__":
     if missing:
         print(f"\n[2b/4] Expansion fetch for missing categories: {', '.join(missing)}")
         expansion_articles = []
+
+        # Optimization: Skip URLs already fetched in the main pass and deduplicate across missing topics
+        fetched_urls = set(FEEDS.values())
+        expansion_urls_to_fetch = set()
+        for topic in missing:
+            for url in EXPANSION_FEEDS[topic]:
+                if url not in fetched_urls:
+                    expansion_urls_to_fetch.add(url)
+
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
-            for topic in missing:
-                for url in EXPANSION_FEEDS[topic]:
-                    source_name = url.split("/")[2]  # e.g. thewire.in
-                    futures.append(executor.submit(fetch_from_feed, url, source_name, limit=3))
+            for url in expansion_urls_to_fetch:
+                source_name = url.split("/")[2]  # e.g. thewire.in
+                futures.append(executor.submit(fetch_from_feed, url, source_name, limit=3))
             for future in futures:
                 expansion_articles.extend(future.result())
 
