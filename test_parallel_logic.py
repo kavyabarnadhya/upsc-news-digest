@@ -1,5 +1,4 @@
 import time
-import collections
 import unittest
 from unittest.mock import patch, MagicMock
 import digest

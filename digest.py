@@ -2,6 +2,7 @@ import os
 import re
 import json
 import smtplib
+import socket
 import ssl
 import html
 from email.mime.multipart import MIMEMultipart
@@ -15,6 +16,9 @@ from dotenv import load_dotenv
 from groq import Groq
 
 load_dotenv()
+
+# Set a global timeout for network requests (RSS fetching) to prevent hanging
+socket.setdefaulttimeout(30)
 
 FEEDS = {
     "The Hindu":       "https://www.thehindu.com/news/national/feeder/default.rss",
@@ -171,7 +175,8 @@ Articles:
         topic = item.get("topic", "")
         if topic == "Not UPSC Relevant" or topic not in TOPIC_COLORS:
             continue
-        if idx is None or idx >= len(articles):
+        # Security: Validate index is a non-negative integer within bounds
+        if not isinstance(idx, int) or idx < 0 or idx >= len(articles):
             continue
         original = articles[idx]
         result.append({
@@ -316,8 +321,9 @@ def send_email(html_body):
     if not all([sender, password, receiver_raw]):
         raise ValueError("Missing one or more email env vars: SENDER_EMAIL, SENDER_APP_PASSWORD, RECEIVER_EMAIL")
 
-    # Support comma-separated list of recipients
-    receivers = [r.strip() for r in receiver_raw.split(",") if r.strip()]
+    # Support comma-separated list of recipients.
+    # Security: Strip newline characters to prevent email header injection.
+    receivers = [re.sub(r"[\r\n]", "", r.strip()) for r in receiver_raw.split(",") if r.strip()]
 
     today = datetime.now().strftime("%B %d, %Y")
     msg = MIMEMultipart("alternative")
