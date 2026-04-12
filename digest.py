@@ -190,19 +190,22 @@ Articles:
 
 
 def render_html(grouped, category_angles):
-    today = datetime.now().strftime("%B %d, %Y")
+    today = datetime.now().strftime("%A, %B %d, %Y")
     topics_present = list(grouped.keys())
+    total_articles = sum(len(articles) for articles in grouped.values())
+    reading_time = max(1, round(total_articles * 0.75))
 
     # Topic index bar
     index_bar_items = ""
     for topic in topics_present:
         color = TOPIC_COLORS[topic]
+        count = len(grouped[topic])
         # Sanitize anchor to only allow alphanumeric characters and hyphens
         anchor = re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
         index_bar_items += (
             f'<a href="#{anchor}" style="display:inline-block;margin:4px;padding:6px 14px;'
             f'background:{color};color:#fff;border-radius:20px;text-decoration:none;'
-            f'font-size:13px;font-weight:600;">{html.escape(topic)}</a>'
+            f'font-size:13px;font-weight:600;">{html.escape(topic)} ({count})</a>'
         )
 
     # Article sections
@@ -243,7 +246,7 @@ def render_html(grouped, category_angles):
               </p>
               <a href="{safe_link}" aria-label="Read full article: {safe_title}"
                  style="color:{color};font-size:13px;font-weight:600;
-                 text-decoration:none;">Read full article &rarr;</a>
+                 text-decoration:none;">Read full article <span aria-hidden="true">&rarr;</span></a>
             </div>"""
 
         angles = category_angles.get(topic, [])
@@ -257,7 +260,9 @@ def render_html(grouped, category_angles):
           <div style="background:#fefce8;border-left:4px solid #f59e0b;
                       padding:12px 16px;border-radius:4px;margin-bottom:20px;">
             <h3 style="margin:0;display:inline;font-size:12px;font-weight:700;color:#b45309;
-                         text-transform:uppercase;letter-spacing:0.5px;">UPSC Exam Angles</h3>
+                         text-transform:uppercase;letter-spacing:0.5px;">
+              <span aria-hidden="true">🎓</span> UPSC Exam Angles
+            </h3>
             <ul style="margin:8px 0 0 0;padding-left:18px;">{bullets}</ul>
           </div>"""
 
@@ -270,7 +275,7 @@ def render_html(grouped, category_angles):
           {angles_html}
           {cards_html}
           <div style="text-align:right;">
-            <a href="#top" style="color:#666;font-size:12px;text-decoration:none;">&uarr; Back to top</a>
+            <a href="#top" style="color:#666;font-size:12px;text-decoration:none;"><span aria-hidden="true">&uarr;</span> Back to top</a>
           </div>
         </div>"""
 
@@ -289,7 +294,7 @@ def render_html(grouped, category_angles):
       <h1 style="color:#fff;margin:0 0 6px 0;font-size:26px;font-weight:700;">
         UPSC News Digest
       </h1>
-      <p style="color:#aaa;margin:0;font-size:14px;">{today}</p>
+      <p style="color:#aaa;margin:0;font-size:14px;">{today} &bull; {total_articles} articles &bull; {reading_time} min read</p>
     </div>
 
     <!-- Topic Index Bar -->
