@@ -208,7 +208,7 @@ def render_html(grouped, category_angles):
     total_articles = sum(len(articles) for articles in grouped.values())
     reading_time = max(1, round(total_articles * 0.75))
 
-    # Optimization: Pre-calculate sanitized anchors and use list-based joins for rendering efficiency
+    # Security: Sanitize dynamic IDs/anchors using a strict allow-list
     topic_anchors = {
         topic: re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
         for topic in topics_present
@@ -271,8 +271,9 @@ def render_html(grouped, category_angles):
         angles = category_angles.get(topic, [])
         angles_html = ""
         if angles:
+            # Security: Defensive string conversion to prevent crashes on non-string AI output
             bullets = "".join(
-                f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">{html.escape(b)}</li>'
+                f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">{html.escape(str(b))}</li>'
                 for b in angles
             )
             angles_html = f"""
@@ -340,7 +341,9 @@ def render_html(grouped, category_angles):
 
 
 def send_email(html_body):
-    sender = os.getenv("SENDER_EMAIL")
+    # Security: Sanitize sender email to prevent header injection
+    sender_raw = os.getenv("SENDER_EMAIL")
+    sender = re.sub(r"[\r\n]", "", sender_raw.strip()) if sender_raw else None
     password = os.getenv("SENDER_APP_PASSWORD")
     receiver_raw = os.getenv("RECEIVER_EMAIL")
 
@@ -363,7 +366,8 @@ def send_email(html_body):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
         server.login(sender, password)
         server.sendmail(sender, receivers, msg.as_string())
-    print(f"  Sent to: {', '.join(receivers)}")
+    # Security: Mask recipient emails in logs to protect PII
+    print(f"  Sent to {len(receivers)} recipient(s) successfully")
 
 
 if __name__ == "__main__":
