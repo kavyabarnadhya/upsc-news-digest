@@ -81,6 +81,13 @@ TOPIC_COLORS = {
     "Science & Technology": "#2c3e50",
 }
 
+# Pre-calculate topic anchors and escaped names to save cycles during rendering
+TOPIC_ANCHORS = {
+    topic: re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
+    for topic in TOPIC_COLORS
+}
+SAFE_TOPIC_NAMES = {topic: html.escape(topic) for topic in TOPIC_COLORS}
+
 VALID_TOPICS = set(TOPIC_COLORS.keys()) | {"Not UPSC Relevant"}
 
 TOPIC_ORDER = [
@@ -208,23 +215,18 @@ def render_html(grouped, category_angles):
     total_articles = sum(len(articles) for articles in grouped.values())
     reading_time = max(1, round(total_articles * 0.75))
 
-    # Security: Sanitize dynamic IDs/anchors using a strict allow-list
-    topic_anchors = {
-        topic: re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
-        for topic in topics_present
-    }
-
     # Topic index bar
     index_bar_parts = []
     for topic in topics_present:
-        color = TOPIC_COLORS[topic]
+        color = TOPIC_COLORS.get(topic, "#555")
         count = len(grouped[topic])
-        anchor = topic_anchors[topic]
+        # Use fallback if topic was not in the original TOPIC_COLORS
+        anchor = TOPIC_ANCHORS.get(topic, re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower()))
         index_bar_parts.append(
             f'<li style="display:inline-block;margin:0;">'
             f'<a href="#{anchor}" style="display:inline-block;margin:4px;padding:6px 14px;'
             f'background:{color};color:#fff;border-radius:20px;text-decoration:none;'
-            f'font-size:13px;font-weight:600;">{html.escape(topic)} ({count})</a>'
+            f'font-size:13px;font-weight:600;">{SAFE_TOPIC_NAMES[topic]} ({count})</a>'
             f'</li>'
         )
     index_bar_items = f'<ul style="list-style:none;padding:0;margin:0;">{"".join(index_bar_parts)}</ul>'
@@ -232,8 +234,8 @@ def render_html(grouped, category_angles):
     # Article sections
     sections_parts = []
     for topic in topics_present:
-        color = TOPIC_COLORS[topic]
-        anchor = topic_anchors[topic]
+        color = TOPIC_COLORS.get(topic, "#555")
+        anchor = TOPIC_ANCHORS.get(topic, re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower()))
         articles = grouped[topic]
 
         cards_parts = []
@@ -244,8 +246,9 @@ def render_html(grouped, category_angles):
             safe_summary = html.escape(a.get("summary", ""))
 
             # Simple URL validation: only allow http(s) protocols
+            # Security: Validation must be case-insensitive to effectively block javascript: URIs
             link = a.get("link", "")
-            if not (link.lower().startswith("http://") or link.lower().startswith("https://")):
+            if not link.lower().startswith(("http://", "https://")):
                 link = "#"
             # Escape link to prevent attribute injection
             safe_link = html.escape(link, quote=True)
@@ -291,7 +294,7 @@ def render_html(grouped, category_angles):
         <div id="{anchor}" style="margin-bottom:36px;">
           <h2 style="margin:0 0 16px 0;padding:12px 20px;background:{color};
                      color:#fff;border-radius:6px;font-size:18px;font-weight:700;">
-            {html.escape(topic)}
+            {SAFE_TOPIC_NAMES.get(topic, html.escape(topic))}
           </h2>
           {angles_html}
           {cards_html}
@@ -346,7 +349,7 @@ def render_html(grouped, category_angles):
 def send_email(html_body):
     # Security: Sanitize sender email to prevent header injection
     sender_raw = os.getenv("SENDER_EMAIL")
-    sender = re.sub(r"[\r\n]", "", sender_raw.strip()) if sender_raw else None
+    sender = sender_raw.strip().replace("\r", "").replace("\n", "") if sender_raw else None
     password = os.getenv("SENDER_APP_PASSWORD")
     receiver_raw = os.getenv("RECEIVER_EMAIL")
 
@@ -355,7 +358,7 @@ def send_email(html_body):
 
     # Support comma-separated list of recipients.
     # Security: Strip newline characters to prevent email header injection.
-    receivers = [re.sub(r"[\r\n]", "", r.strip()) for r in receiver_raw.split(",") if r.strip()]
+    receivers = [r.strip().replace("\r", "").replace("\n", "") for r in receiver_raw.split(",") if r.strip()]
 
     today = datetime.now().strftime("%B %d, %Y")
     msg = MIMEMultipart("alternative")
