@@ -7,3 +7,8 @@
 **Vulnerability:** Untrusted indices from LLM responses could lead to out-of-bounds or negative indexing. Email recipient lists from environment variables were vulnerable to header injection if they contained newlines.
 **Learning:** LLM outputs must be treated as untrusted input. Even if the LLM is instructed to return a valid index, it can fail or be manipulated. Email headers are particularly sensitive to newline characters which can be used to inject additional headers (Bcc, Cc) or modify the email body.
 **Prevention:** Strictly validate LLM-returned indices as non-negative integers. Sanitize all inputs used in email headers by stripping carriage returns and newlines. Implement global timeouts for network operations to prevent DoS from slow external feeds.
+
+## 2025-05-17 - [PII Leakage in Execution Logs]
+**Vulnerability:** Personal email addresses were being printed to standard output in the `send_email` function, exposing PII in CI/CD (GitHub Actions) logs.
+**Learning:** Logging full sensitive data for verification is a privacy risk. Logs often have longer retention and wider access than the application state itself.
+**Prevention:** Mask PII in logs by reporting counts or anonymized summaries instead of full values. Reporting the number of recipients successfully processed is sufficient for operational verification.
