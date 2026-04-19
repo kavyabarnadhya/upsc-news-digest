@@ -221,11 +221,13 @@ def render_html(grouped, category_angles):
         count = len(grouped[topic])
         anchor = topic_anchors[topic]
         index_bar_parts.append(
+            f'<li style="display:inline-block;margin:0;">'
             f'<a href="#{anchor}" style="display:inline-block;margin:4px;padding:6px 14px;'
             f'background:{color};color:#fff;border-radius:20px;text-decoration:none;'
             f'font-size:13px;font-weight:600;">{html.escape(topic)} ({count})</a>'
+            f'</li>'
         )
-    index_bar_items = "".join(index_bar_parts)
+    index_bar_items = f'<ul style="list-style:none;padding:0;margin:0;">{"".join(index_bar_parts)}</ul>'
 
     # Article sections
     sections_parts = []
@@ -249,12 +251,11 @@ def render_html(grouped, category_angles):
             safe_link = html.escape(link, quote=True)
 
             cards_parts.append(f"""
-            <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
-                        padding:18px 20px;margin-bottom:16px;">
-              <div style="margin-bottom:8px;">
-                <a href="{safe_link}" style="font-size:17px;font-weight:700;color:#1a1a1a;
-                   text-decoration:none;">{safe_title}</a>
-              </div>
+            <article style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
+                        padding:18px 20px;margin-bottom:16px;display:block;">
+              <h3 style="margin:0 0 8px 0;font-size:17px;font-weight:700;">
+                <a href="{safe_link}" style="color:#1a1a1a;text-decoration:none;">{safe_title}</a>
+              </h3>
               <div style="margin-bottom:10px;">
                 <span style="background:#f0f0f0;color:#555;font-size:12px;font-weight:600;
                              padding:3px 9px;border-radius:12px;">{safe_source}</span>
@@ -265,7 +266,7 @@ def render_html(grouped, category_angles):
               <a href="{safe_link}" aria-label="Read full article: {safe_title}"
                  style="color:{color};font-size:13px;font-weight:600;
                  text-decoration:none;">Read full article <span aria-hidden="true">&rarr;</span></a>
-            </div>""")
+            </article>""")
         cards_html = "".join(cards_parts)
 
         angles = category_angles.get(topic, [])
@@ -328,7 +329,9 @@ def render_html(grouped, category_angles):
     </nav>
 
     <!-- Article Sections -->
-    {sections_html}
+    <main>
+      {sections_html}
+    </main>
 
     <!-- Footer -->
     <div style="text-align:center;padding:20px;color:#5e5e5e;font-size:12px;">
