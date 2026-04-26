@@ -27,7 +27,10 @@ _groq_client = None
 def get_groq_client():
     global _groq_client
     if _groq_client is None:
-        _groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        _groq_client = Groq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            timeout=60.0  # Security: Set explicit timeout to prevent indefinite hangs
+        )
     return _groq_client
 
 
@@ -182,8 +185,15 @@ Articles:
         raw = response.choices[0].message.content.strip()
 
         data = json.loads(raw)
-        classified = data["articles"]
-        category_angles = data.get("category_angles", {})
+        # Security: Robustly validate LLM-generated JSON structure
+        if not isinstance(data, dict):
+            raise ValueError("LLM response is not a JSON object")
+        classified = data.get("articles")
+        if not isinstance(classified, list):
+            raise ValueError("LLM 'articles' is not a list")
+        category_angles = data.get("category_angles")
+        if not isinstance(category_angles, dict):
+            category_angles = {}
     except Exception as e:
         print(f"ERROR in Groq classification: {e}")
         return [], {}
@@ -191,6 +201,8 @@ Articles:
     # Merge original article data back using index
     result = []
     for item in classified:
+        if not isinstance(item, dict):
+            continue
         idx = item.get("index")
         topic = item.get("topic", "")
         if topic == "Not UPSC Relevant" or topic not in TOPIC_COLORS:
@@ -274,7 +286,8 @@ def render_html(grouped, category_angles):
 
         angles = category_angles.get(topic, [])
         angles_html = ""
-        if angles:
+        # Security: Ensure angles is a list to prevent iterating over characters if AI returns a string
+        if isinstance(angles, list) and angles:
             # Security: Defensive string conversion to prevent crashes on non-string AI output
             bullets = "".join(
                 f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">{html.escape(str(b))}</li>'
