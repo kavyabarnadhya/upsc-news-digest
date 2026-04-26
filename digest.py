@@ -20,6 +20,22 @@ load_dotenv()
 # Set a global timeout for network requests (RSS fetching) to prevent hanging
 socket.setdefaulttimeout(30)
 
+# Pre-compiled regex for stripping HTML tags; more efficient than calling re.sub in a loop
+TAG_RE = re.compile(r"<[^>]+>")
+
+
+def clean_text(text):
+    """
+    Performance Optimization: Strips HTML tags and unescapes entities from RSS summaries
+    to reduce token usage in LLM prompts and improve classification accuracy.
+    """
+    if not text:
+        return ""
+    # Unescape HTML entities first so we don't accidentally leave things like &lt; in the text
+    text = html.unescape(text)
+    return TAG_RE.sub("", text).strip()
+
+
 # Initialize Groq client once at the module level for resource reuse
 _groq_client = None
 
@@ -111,7 +127,9 @@ def fetch_from_feed(url, source_name, limit=3):
     try:
         feed = feedparser.parse(url)
         for entry in feed.entries[:limit]:
-            summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
+            raw_summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
+            # Apply clean_text early to save memory and token budget
+            summary = clean_text(raw_summary)
             articles.append({
                 "title": entry.get("title", ""),
                 "link":  entry.get("link", ""),
@@ -230,11 +248,11 @@ def render_html(grouped, category_angles):
     # Topic index bar
     index_bar_parts = []
     for topic in topics_present:
-        color = TOPIC_COLORS.get(topic, "#555")
+        # Optimization: Use direct dictionary lookups for pre-calculated values
+        color = TOPIC_COLORS[topic]
         count = len(grouped[topic])
-        safe_name = SAFE_TOPIC_NAMES.get(topic, html.escape(topic))
-        # Use fallback if topic was not in the original TOPIC_COLORS
-        anchor = TOPIC_ANCHORS.get(topic, re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower()))
+        safe_name = SAFE_TOPIC_NAMES[topic]
+        anchor = TOPIC_ANCHORS[topic]
         index_bar_parts.append(
             f'<li style="display:inline-block;margin:0;">'
             f'<a href="#{anchor}" aria-label="Jump to {safe_name} section - {count} articles" '
@@ -248,8 +266,9 @@ def render_html(grouped, category_angles):
     # Article sections
     sections_parts = []
     for topic in topics_present:
-        color = TOPIC_COLORS.get(topic, "#555")
-        anchor = TOPIC_ANCHORS.get(topic, re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower()))
+        # Optimization: Use direct lookups; guaranteed safe for topics in TOPIC_ORDER
+        color = TOPIC_COLORS[topic]
+        anchor = TOPIC_ANCHORS[topic]
         header_id = f"header-{anchor}"
         articles = grouped[topic]
 
@@ -310,7 +329,7 @@ def render_html(grouped, category_angles):
         <section id="{anchor}" aria-labelledby="{header_id}" style="margin-bottom:36px;">
           <h2 id="{header_id}" style="margin:0 0 16px 0;padding:12px 20px;background:{color};
                      color:#fff;border-radius:6px;font-size:18px;font-weight:700;">
-            {SAFE_TOPIC_NAMES.get(topic, html.escape(topic))}
+            {SAFE_TOPIC_NAMES[topic]}
           </h2>
           {angles_html}
           {cards_html}
