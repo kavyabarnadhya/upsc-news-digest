@@ -232,13 +232,15 @@ def render_html(grouped, category_angles):
     for topic in topics_present:
         color = TOPIC_COLORS.get(topic, "#555")
         count = len(grouped[topic])
+        safe_name = SAFE_TOPIC_NAMES.get(topic, html.escape(topic))
         # Use fallback if topic was not in the original TOPIC_COLORS
         anchor = TOPIC_ANCHORS.get(topic, re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower()))
         index_bar_parts.append(
             f'<li style="display:inline-block;margin:0;">'
-            f'<a href="#{anchor}" style="display:inline-block;margin:4px;padding:6px 14px;'
+            f'<a href="#{anchor}" aria-label="Jump to {safe_name} section - {count} articles" '
+            f'style="display:inline-block;margin:4px;padding:6px 14px;'
             f'background:{color};color:#fff;border-radius:20px;text-decoration:none;'
-            f'font-size:13px;font-weight:600;">{SAFE_TOPIC_NAMES[topic]} ({count})</a>'
+            f'font-size:13px;font-weight:600;">{safe_name} ({count})</a>'
             f'</li>'
         )
     index_bar_items = f'<ul style="list-style:none;padding:0;margin:0;">{"".join(index_bar_parts)}</ul>'
@@ -248,6 +250,7 @@ def render_html(grouped, category_angles):
     for topic in topics_present:
         color = TOPIC_COLORS.get(topic, "#555")
         anchor = TOPIC_ANCHORS.get(topic, re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower()))
+        header_id = f"header-{anchor}"
         articles = grouped[topic]
 
         cards_parts = []
@@ -304,19 +307,22 @@ def render_html(grouped, category_angles):
           </div>"""
 
         sections_parts.append(f"""
-        <div id="{anchor}" style="margin-bottom:36px;">
-          <h2 style="margin:0 0 16px 0;padding:12px 20px;background:{color};
+        <section id="{anchor}" aria-labelledby="{header_id}" style="margin-bottom:36px;">
+          <h2 id="{header_id}" style="margin:0 0 16px 0;padding:12px 20px;background:{color};
                      color:#fff;border-radius:6px;font-size:18px;font-weight:700;">
             {SAFE_TOPIC_NAMES.get(topic, html.escape(topic))}
           </h2>
           {angles_html}
           {cards_html}
           <div style="text-align:right;">
-            <a href="#top" style="color:#666;font-size:12px;text-decoration:none;"><span aria-hidden="true">&uarr;</span> Back to top</a>
+            <a href="#top" aria-label="Back to topic index" style="color:#666;font-size:12px;text-decoration:none;"><span aria-hidden="true">&uarr;</span> Back to top</a>
           </div>
-        </div>""")
+        </section>""")
 
     sections_html = "".join(sections_parts)
+
+    # Preheader text for better inbox preview
+    preheader_text = f"Today's UPSC Digest: {total_articles} curated articles across {len(topics_present)} topics. Reading time: {reading_time} min."
 
     full_html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -324,9 +330,31 @@ def render_html(grouped, category_angles):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UPSC News Digest – {today}</title>
+  <style>
+    .skip-link:focus {{
+      position: static !important;
+      width: auto !important;
+      height: auto !important;
+      overflow: visible !important;
+      background: #fff;
+      padding: 10px;
+      border: 2px solid #1a1a2e;
+      z-index: 9999;
+    }}
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
+  <!-- Preheader -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;" aria-hidden="true">
+    {html.escape(preheader_text)}
+  </div>
+
   <div id="top" style="max-width:680px;margin:0 auto;padding:20px;">
+    <!-- Skip to content -->
+    <a href="#main-content" class="skip-link"
+       style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+       Skip to content
+    </a>
 
     <!-- Header -->
     <div style="background:#1a1a2e;border-radius:10px;padding:28px 30px;margin-bottom:24px;text-align:center;">
@@ -345,7 +373,7 @@ def render_html(grouped, category_angles):
     </nav>
 
     <!-- Article Sections -->
-    <main>
+    <main id="main-content">
       {sections_html}
     </main>
 
