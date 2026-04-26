@@ -12,3 +12,8 @@
 **Vulnerability:** Personal email addresses were being printed to standard output in the `send_email` function, exposing PII in CI/CD (GitHub Actions) logs.
 **Learning:** Logging full sensitive data for verification is a privacy risk. Logs often have longer retention and wider access than the application state itself.
 **Prevention:** Mask PII in logs by reporting counts or anonymized summaries instead of full values. Reporting the number of recipients successfully processed is sufficient for operational verification.
+
+## 2026-04-26 - [Robust LLM JSON Parsing]
+**Vulnerability:** Application crashes or unexpected behavior (e.g., character iteration) when LLM returns malformed JSON or unexpected data types for expected keys.
+**Learning:** LLM-generated JSON, even when using "json_object" response format, must be strictly validated for the expected schema and types. Assuming keys are present or are of a certain type (like list) is a reliability risk that can lead to runtime exceptions. Iterating over a string when a list is expected (like for UPSC Exam Angles) can lead to nonsensical output in the final UI/email.
+**Prevention:** Use `isinstance(data, dict)`, `isinstance(list_var, list)`, and check for key presence before access. Use defensive `.get()` with appropriate fallbacks only after confirming the parent object is a dictionary. Set explicit timeouts on AI client libraries to prevent hangs.
