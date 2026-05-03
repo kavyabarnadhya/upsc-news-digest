@@ -229,12 +229,13 @@ Articles:
         if not isinstance(idx, int) or idx < 0 or idx >= len(articles):
             continue
         original = articles[idx]
+        # Security: Defensive conversion to string before being used in HTML rendering
         result.append({
             "title": original["title"],
             "link": original["link"],
             "source": original["source"],
             "topic": topic,
-            "summary": item.get("summary", ""),
+            "summary": str(item.get("summary", "")),
         })
     return result, category_angles
 
@@ -282,10 +283,10 @@ def render_html(grouped, category_angles):
             # Simple URL validation: only allow http(s) protocols
             # Security: Validation must be case-insensitive to effectively block javascript: URIs
             link = a.get("link", "")
-            if not link.lower().startswith(("http://", "https://")):
+            if not isinstance(link, str) or not link.lower().startswith(("http://", "https://")):
                 link = "#"
             # Escape link to prevent attribute injection
-            safe_link = html.escape(link, quote=True)
+            safe_link = html.escape(str(link), quote=True)
 
             cards_parts.append(f"""
             <article style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;
@@ -406,15 +407,35 @@ def render_html(grouped, category_angles):
     return full_html
 
 
+def validate_env():
+    """
+    Security: Validates that all required environment variables are present
+    and follow basic format expectations before starting the process.
+    """
+    required = ["SENDER_EMAIL", "SENDER_APP_PASSWORD", "RECEIVER_EMAIL", "GROQ_API_KEY"]
+    missing = [var for var in required if not os.getenv(var)]
+    if missing:
+        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+    # Basic email format validation for sender and receiver
+    email_regex = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+
+    sender = os.getenv("SENDER_EMAIL", "").strip()
+    if not email_regex.match(sender):
+        raise ValueError("SENDER_EMAIL does not appear to be a valid email address.")
+
+    receivers = os.getenv("RECEIVER_EMAIL", "").split(",")
+    for r in receivers:
+        if not email_regex.match(r.strip()):
+            raise ValueError(f"RECEIVER_EMAIL contains an invalid email address: {r.strip()}")
+
+
 def send_email(html_body):
     # Security: Sanitize sender email to prevent header injection
     sender_raw = os.getenv("SENDER_EMAIL")
     sender = sender_raw.strip().replace("\r", "").replace("\n", "") if sender_raw else None
     password = os.getenv("SENDER_APP_PASSWORD")
     receiver_raw = os.getenv("RECEIVER_EMAIL")
-
-    if not all([sender, password, receiver_raw]):
-        raise ValueError("Missing one or more email env vars: SENDER_EMAIL, SENDER_APP_PASSWORD, RECEIVER_EMAIL")
 
     # Support comma-separated list of recipients.
     # Security: Strip newline characters to prevent email header injection.
@@ -438,6 +459,12 @@ def send_email(html_body):
 
 if __name__ == "__main__":
     print("=== UPSC News Digest ===")
+
+    try:
+        validate_env()
+    except Exception as e:
+        print(f"FATAL: Environment validation failed: {e}")
+        exit(1)
 
     print("\n[1/4] Fetching articles from RSS feeds...")
     try:
