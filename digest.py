@@ -23,6 +23,9 @@ socket.setdefaulttimeout(30)
 # Pre-compiled regex for stripping HTML tags; more efficient than calling re.sub in a loop
 TAG_RE = re.compile(r"<[^>]+>")
 
+# Pre-compiled regex for bolding GS paper references (GS-I to GS-IV) for better scannability
+GS_RE = re.compile(r"(GS-[IVX]+)")
+
 
 def clean_text(text):
     """
@@ -279,6 +282,8 @@ def render_html(grouped, category_angles):
             safe_title = html.escape(a.get("title", ""))
             safe_source = html.escape(a.get("source", ""))
             safe_summary = html.escape(a.get("summary", ""))
+            # UX: Bold GS paper references to help UPSC aspirants scan the digest more efficiently
+            safe_summary = GS_RE.sub(r"<strong>\1</strong>", safe_summary)
 
             # Simple URL validation: only allow http(s) protocols
             # Security: Validation must be case-insensitive to effectively block javascript: URIs
@@ -312,8 +317,10 @@ def render_html(grouped, category_angles):
         # Security: Ensure angles is a list to prevent iterating over characters if AI returns a string
         if isinstance(angles, list) and angles:
             # Security: Defensive string conversion to prevent crashes on non-string AI output
+            # UX: Bold GS paper references to help UPSC aspirants scan the digest more efficiently
             bullets = "".join(
-                f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">{html.escape(str(b))}</li>'
+                f'<li style="margin:4px 0;color:#78350f;font-size:13px;line-height:1.5;">'
+                f'{GS_RE.sub(r"<strong>\1</strong>", html.escape(str(b)))}</li>'
                 for b in angles
             )
             angles_html = f"""
