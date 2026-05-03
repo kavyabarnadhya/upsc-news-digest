@@ -1,3 +1,3 @@
-feedparser
-groq
-python-dotenv
+feedparser==6.0.12
+groq==1.2.0
+python-dotenv==1.2.2
