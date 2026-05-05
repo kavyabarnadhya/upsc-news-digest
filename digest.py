@@ -34,6 +34,8 @@ def clean_text(text):
     """
     if not text:
         return ""
+    # Optimization: Truncate raw input to 2000 chars to avoid expensive processing on large payloads
+    text = text[:2000]
     # Unescape HTML entities first so we don't accidentally leave things like &lt; in the text
     text = html.unescape(text)
     return TAG_RE.sub("", text).strip()
@@ -62,6 +64,9 @@ FEEDS = {
     "Economic Times":  "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms",
     "DD News":         "https://ddnews.gov.in/en/feed/",
 }
+
+# Optimization: Pre-calculate feed URLs set for efficient deduplication in expansion pass
+MAIN_FEED_URLS = set(FEEDS.values())
 
 # Sources that are narrowly focused on one category — cap them at 3 articles
 # to prevent Economy / International Relations from dominating the digest.
@@ -103,6 +108,9 @@ TOPIC_COLORS = {
     "Science & Technology": "#2c3e50",
 }
 
+# Optimization: Pre-calculate sorted topic list string for the LLM prompt
+TOPIC_LIST_STR = ", ".join(sorted(TOPIC_COLORS.keys()))
+
 # Pre-calculate topic anchors and escaped names to save cycles during rendering
 TOPIC_ANCHORS = {
     topic: re.sub(r"[^a-z0-9\-]", "", topic.replace(" ", "-").replace("&", "and").lower())
@@ -133,6 +141,9 @@ def fetch_from_feed(url, source_name, limit=3):
             raw_summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
             # Apply clean_text early to save memory and token budget
             summary = clean_text(raw_summary)
+            # Optimization: Truncate cleaned summary to 400 chars. We only use 300 for classification
+            # and the original summary is not displayed in the final email.
+            summary = summary[:400]
             articles.append({
                 "title": entry.get("title", ""),
                 "link":  entry.get("link", ""),
@@ -186,7 +197,7 @@ Return ONLY a JSON object (no markdown, no code fences, no explanation) with exa
 
 1. "articles": an array of objects for each UPSC-relevant article with:
    - index: the article index number (int)
-   - topic: one of exactly these topics: {', '.join(sorted(TOPIC_COLORS.keys()))}, Not UPSC Relevant
+   - topic: one of exactly these topics: {TOPIC_LIST_STR}, Not UPSC Relevant
    - summary: sharp UPSC-focused summary in 4-5 sentences. Lead with the core decision, judgment, or policy. Then include: (a) the specific constitutional article, act, scheme, or regulatory body involved by name; (b) one or two concrete data points such as numbers, percentages, timelines, or committee names; (c) the GS paper and syllabus topic this maps to (e.g. "GS-II: Parliament and State Legislatures"); (d) the exam-relevant implication or significance. Avoid generic commentary, journalistic opinion, and vague statements like "experts say" or "this is significant".
    Omit articles that are "Not UPSC Relevant" — do not include them in the array at all.
 
@@ -497,7 +508,7 @@ if __name__ == "__main__":
         expansion_articles = []
 
         # Optimization: Skip URLs already fetched in the main pass and deduplicate across missing topics
-        fetched_urls = set(FEEDS.values())
+        fetched_urls = MAIN_FEED_URLS
         expansion_urls_to_fetch = set()
         for topic in missing:
             for url in EXPANSION_FEEDS[topic]:
