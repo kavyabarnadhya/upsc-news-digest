@@ -442,10 +442,12 @@ def validate_env():
     if not email_regex.match(sender):
         raise ValueError("SENDER_EMAIL does not appear to be a valid email address.")
 
-    receivers = os.getenv("RECEIVER_EMAIL", "").split(",")
+    receivers = [r.strip() for r in os.getenv("RECEIVER_EMAIL", "").split(",") if r.strip()]
+    if not receivers:
+        raise ValueError("RECEIVER_EMAIL is empty or contains no valid addresses")
     for r in receivers:
-        if not email_regex.match(r.strip()):
-            raise ValueError(f"RECEIVER_EMAIL contains an invalid email address: {r.strip()}")
+        if not email_regex.match(r):
+            raise ValueError(f"RECEIVER_EMAIL contains an invalid email address: {r}")
 
 
 def send_email(html_body):
@@ -550,7 +552,7 @@ if __name__ == "__main__":
         for a in classified:
             grouped_raw[a["topic"]].append(a)
         grouped = {t: grouped_raw[t] for t in TOPIC_ORDER if t in grouped_raw}
-        html = render_html(grouped, category_angles)
+        html_body = render_html(grouped, category_angles)
         print(f"  Topics covered: {', '.join(grouped.keys())}")
     except Exception as e:
         print(f"FATAL: HTML rendering failed: {e}")
@@ -558,7 +560,7 @@ if __name__ == "__main__":
 
     print("\n[4/4] Sending email via Gmail SMTP...")
     try:
-        send_email(html)
+        send_email(html_body)
         print("  Email sent successfully!")
     except Exception as e:
         print(f"FATAL: Email sending failed: {e}")
