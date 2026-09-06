@@ -326,6 +326,13 @@ class TestSecurity(unittest.TestCase):
         self.assertIn(".article-card:hover, .article-card:focus-within", html_body)
         self.assertIn("box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05) !important;", html_body)
 
+        # Check title link aria-label for external links
+        self.assertIn('aria-label="Article Title (opens in new tab)"', html_body)
+
+        # Check exam angles semantic landmark <aside> with aria-labelledby
+        self.assertIn('<aside class="exam-angles" aria-labelledby="angles-header-polity-and-governance">', html_body)
+        self.assertIn('<h3 id="angles-header-polity-and-governance" class="exam-angles-header">', html_body)
+
         # Check read-more accessibility and card hover animation
         self.assertIn('class="read-more" aria-label="Read full article: Article Title (opens in new tab)"', html_body)
         self.assertIn('target="_blank" rel="noopener noreferrer"', html_body)

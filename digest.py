@@ -613,7 +613,7 @@ def render_html(grouped, category_angles):
             cards_parts.append(f"""
             <article class="article-card" style="border-left-color:{color};">
               <h3 class="article-title">
-                <a href="{safe_link}" target="_blank" rel="noopener noreferrer">{safe_title}</a>
+                <a href="{safe_link}" target="_blank" rel="noopener noreferrer" aria-label="{safe_title} (opens in new tab)">{safe_title}</a>
               </h3>
               <div class="source-container">
                 <span class="source-badge">{source_icon}{safe_source}</span>
@@ -630,14 +630,15 @@ def render_html(grouped, category_angles):
         angles_html = ""
         if angles:
             bullets = "".join([f'<li class="exam-angle-bullet">{b}</li>' for b in angles])
+            angles_header_id = f"angles-header-{anchor}"
             angles_html = f"""
-          <div class="exam-angles">
-            <h3 class="exam-angles-header">
+          <aside class="exam-angles" aria-labelledby="{angles_header_id}">
+            <h3 id="{angles_header_id}" class="exam-angles-header">
               <span aria-hidden="true">🎓</span> UPSC Exam Angles
             </h3>
             <ul class="exam-angles-list">{bullets}</ul>
             {BACK_TO_TOPICS_SMALL_HTML}
-          </div>"""
+          </aside>"""
 
         # Optimization: Use pre-calculated topic header fragments
         header_html = TOPIC_HEADERS_HTML.get(topic, SAFE_TOPIC_NAMES.get(topic, topic))
