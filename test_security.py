@@ -365,6 +365,30 @@ class TestSecurity(unittest.TestCase):
         self.assertIn('<span aria-hidden="true">&rarr;</span>', html_body)
         self.assertIn(".article-card:hover .read-more, .article-card:focus-within .read-more", html_body)
 
+    def test_ux_enhancements(self):
+        grouped_single = {
+            "Polity & Governance": [
+                {
+                    "title": "Single Article Title",
+                    "link": "https://example.com/art1",
+                    "source": "The Hindu",
+                    "summary": "Summary text."
+                }
+            ]
+        }
+        category_angles = {}
+        html_body, total_articles, reading_time = digest.render_html(grouped_single, category_angles)
+
+        # Check singular text formatting when total_articles == 1 and topics_present == 1
+        self.assertIn("1 curated article across 1 topic.", html_body)
+        self.assertIn(">1 article <", html_body)
+        self.assertIn('aria-label="Jump to Polity &amp; Governance section - 1 article, 1 min read"', html_body)
+
+        # Check CSS rules for cursor pointer and title underline feedback on card hover/focus
+        self.assertIn("cursor: pointer;", html_body)
+        self.assertIn(".article-card:hover .article-title a, .article-card:focus-within .article-title a", html_body)
+        self.assertIn("text-decoration: underline !important;", html_body)
+
     def test_process_llm_articles_filters_invalid_topics(self):
         articles = [{"title": "T1", "link": "http://l1", "source": "S1", "summary": "Sum1"}]
         llm_data = {
