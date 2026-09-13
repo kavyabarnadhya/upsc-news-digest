@@ -290,6 +290,32 @@ class TestSecurity(unittest.TestCase):
         )
         digest._groq_client = None
 
+    def test_render_html_link_whitespace_and_protocol_validation(self):
+        grouped = {
+            "Polity & Governance": [
+                {
+                    "title": "Valid Link With Spaces",
+                    "link": "  https://example.com/art1  ",
+                    "source": "The Hindu",
+                    "summary": "Summary 1"
+                },
+                {
+                    "title": "Padded Dangerous Link",
+                    "link": "  javascript:alert(1)  ",
+                    "source": "The Hindu",
+                    "summary": "Summary 2"
+                }
+            ]
+        }
+        category_angles = {}
+        html_body, _, _ = digest.render_html(grouped, category_angles)
+
+        # Valid link with surrounding whitespace should be trimmed and preserved
+        self.assertIn('href="https://example.com/art1"', html_body)
+        # Whitespace-padded dangerous scheme should be replaced with '#'
+        self.assertIn('href="#"', html_body)
+        self.assertNotIn('javascript:alert(1)', html_body)
+
     def test_rendered_html_css_improvements(self):
         # Verify that our CSS improvements are correctly present in the rendered HTML
         grouped = {
@@ -404,6 +430,17 @@ class TestSecurity(unittest.TestCase):
         recipients_arg = mock_server.sendmail.call_args_list[0][0][1]
         self.assertEqual(sender_arg, "sender@test.test")
         self.assertIn("receiver1@test.test", recipients_arg)
+
+    @patch("digest.os.getenv")
+    def test_send_email_validates_recipient_format(self, mock_getenv):
+        mock_getenv.side_effect = lambda key, default=None: {
+            "SENDER_EMAIL": "sender@test.test",
+            "SENDER_APP_PASSWORD": "abcd efgh ijkl mnop",
+            "RECEIVER_EMAIL": "invalid-recipient-email"
+        }.get(key, default)
+
+        with self.assertRaisesRegex(ValueError, "Invalid recipient email address format"):
+            digest.send_email("<html></html>", 0, 0)
 
 if __name__ == "__main__":
     unittest.main()

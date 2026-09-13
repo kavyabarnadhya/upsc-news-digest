@@ -293,9 +293,11 @@ class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
     via open redirects on whitelisted feed URLs.
     """
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        # Resolve relative redirect URLs against original request URL before validation
-        if isinstance(newurl, str) and getattr(req, "full_url", None):
-            newurl = urllib.parse.urljoin(req.full_url, newurl)
+        if isinstance(newurl, str):
+            newurl = newurl.strip()
+            # Resolve relative redirect URLs against original request URL before validation
+            if getattr(req, "full_url", None):
+                newurl = urllib.parse.urljoin(req.full_url, newurl)
         # Ensure redirect URL has a safe web protocol
         if not isinstance(newurl, str) or not newurl.lower().startswith(("http://", "https://")):
             raise ValueError(f"Secure protocol required for redirect: HTTP or HTTPS. Received: {newurl}")
@@ -524,10 +526,14 @@ def render_html(grouped, category_angles):
     links = []
     for a in all_articles_flat:
         l = a.get("link", "")
-        # Security: Case-insensitive protocol check
-        if not isinstance(l, str) or not l.lower().startswith(("http://", "https://")):
+        # Security: Strip leading/trailing whitespace and perform case-insensitive protocol check
+        if not isinstance(l, str):
             l = "#"
-        links.append(str(l))
+        else:
+            l = l.strip()
+            if not l.lower().startswith(("http://", "https://")):
+                l = "#"
+        links.append(l)
 
     all_angles_flat = []
     angle_topic_map = []
@@ -995,6 +1001,11 @@ def send_email(html_body, total_articles=None, reading_time=None):
 
     if not sender or not password or not receivers:
         raise ValueError("Missing required email credentials or receivers in send_email")
+
+    # Security: Validate recipient email formats as defense-in-depth before connecting
+    for r in receivers:
+        if not EMAIL_RE.match(r):
+            raise ValueError(f"Invalid recipient email address format: {r}")
 
     today = datetime.now().strftime("%B %d, %Y")
     # Performance Optimization: Reuse the pre-calculated global secure SSL context
