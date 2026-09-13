@@ -589,9 +589,10 @@ def render_html(grouped, category_angles):
         topic_time = max(1, round(count * 0.75))
         # Optimization: Use pre-calculated topic header fragments
         header_html = TOPIC_HEADERS_HTML.get(topic, safe_name)
+        topic_art_str = "1 article" if count == 1 else f"{count} articles"
         index_bar_parts.append(
             f'<li role="listitem" class="index-item">'
-            f'<a href="#{anchor}" class="topic-pill" aria-label="Jump to {safe_name} section - {count} articles, {topic_time} min read" '
+            f'<a href="#{anchor}" class="topic-pill" aria-label="Jump to {safe_name} section - {topic_art_str}, {topic_time} min read" '
             f'style="background:{color};">{header_html} ({count}) &bull; {topic_time} min</a>'
             f'</li>'
         )
@@ -660,8 +661,11 @@ def render_html(grouped, category_angles):
 
     sections_html = "".join(sections_parts)
 
+    art_label = "article" if total_articles == 1 else "articles"
+    top_label = "topic" if len(topics_present) == 1 else "topics"
+
     # Preheader text for better inbox preview
-    preheader_text = f"Today's UPSC Digest: {total_articles} curated articles across {len(topics_present)} topics. Reading time: {reading_time} min."
+    preheader_text = f"Today's UPSC Digest: {total_articles} curated {art_label} across {len(topics_present)} {top_label}. Reading time: {reading_time} min."
 
     full_html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -722,11 +726,15 @@ def render_html(grouped, category_angles):
       margin-bottom: 16px;
       display: block;
       position: relative;
+      cursor: pointer;
       transition: border-color 0.2s, box-shadow 0.2s;
     }}
     .article-card:hover, .article-card:focus-within {{
       border-color: #999 !important;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    }}
+    .article-card:hover .article-title a, .article-card:focus-within .article-title a {{
+      text-decoration: underline !important;
     }}
     .article-title a::after {{
       content: "";
@@ -905,7 +913,7 @@ def render_html(grouped, category_angles):
       </h1>
       <p class="main-subtitle">
         <span aria-hidden="true">📅 </span>{today} <span aria-hidden="true">&bull;</span>
-        <span aria-hidden="true">📰 </span>{total_articles} articles <span aria-hidden="true">&bull;</span>
+        <span aria-hidden="true">📰 </span>{total_articles} {art_label} <span aria-hidden="true">&bull;</span>
         <span aria-hidden="true">⏱️ </span>{reading_time} min read
       </p>
     </header>
