@@ -428,6 +428,15 @@ class TestSecurity(unittest.TestCase):
         self.assertEqual(digest.clean_text(True), "True")
         self.assertEqual(digest.clean_text({"key": "val"}), "{'key': 'val'}")
 
+    def test_clean_text_truncated_html_tags(self):
+        # Test payload where HTML markup extends past max_len
+        payload = "Important Title " + "<iframe src=\"http://malicious.com/exploit?param=" + "A" * 500 + "\"></iframe>"
+        # Truncating at max_len=50 without pre-clearing tags would result in "Important Title <iframe src=\"http://malicious"
+        cleaned = digest.clean_text(payload, max_len=50)
+        self.assertEqual(cleaned, "Important Title")
+        self.assertNotIn("<", cleaned)
+        self.assertNotIn("iframe", cleaned)
+
     @patch("digest.os.getenv")
     def test_send_email_raises_on_missing_credentials(self, mock_getenv):
         mock_getenv.side_effect = lambda key, default="": ""

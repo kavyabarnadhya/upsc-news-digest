@@ -73,7 +73,8 @@ def clean_text(text, max_len=2000, strip_tags=True):
     """
     Performance Optimization: Strips HTML tags and unescapes entities from text.
     Fast-path check uses CONTROL_CHAR_RE.search before substitution to avoid regex sub overhead.
-    Security: Strips control characters after unescaping to prevent bypasses.
+    Security: Strips HTML tags, entities, and control characters BEFORE applying max_len truncation
+    to prevent incomplete/truncated tags from bypassing TAG_RE regex removal.
     Defensive Typing: Ensures non-string inputs are converted to str to prevent TypeError.
     """
     if text is None:
@@ -82,8 +83,8 @@ def clean_text(text, max_len=2000, strip_tags=True):
         text = str(text)
     if not text:
         return ""
-    # Optimization: Truncate raw input early to avoid expensive processing on large payloads
-    text = text[:max_len]
+    # Defensive bound: Cap raw input at 100,000 chars to prevent DoS before tag stripping
+    text = text[:100000]
     # Optimization: Only unescape if entities are actually present
     if "&" in text:
         text = html.unescape(text)
@@ -92,7 +93,7 @@ def clean_text(text, max_len=2000, strip_tags=True):
     # Security: Fast-path check before regex substitution to strip control characters AFTER unescaping
     if CONTROL_CHAR_RE.search(text):
         text = CONTROL_CHAR_RE.sub("", text)
-    return text.strip()
+    return text[:max_len].strip()
 
 
 # Initialize Groq client once at the module level for resource reuse

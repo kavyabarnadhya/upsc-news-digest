@@ -55,3 +55,8 @@
 **Vulnerability:** Application rejection or protocol validation failures when RSS feed servers return relative redirect URLs (e.g. `/rss/news`), because relative URLs do not start with `http://` or `https://` until resolved against the request base URL.
 **Learning:** `urllib.request` passes raw `Location` header values to `redirect_request()`, which can be relative paths. Security handlers that enforce protocol schemes or domain whitelists on redirect targets must resolve relative paths against `req.full_url` prior to validation.
 **Prevention:** Use `urllib.parse.urljoin(req.full_url, newurl)` inside custom `HTTPRedirectHandler` implementations before evaluating scheme or domain whitelists.
+
+## 2026-08-09 - Order of Execution: Sanitization Before Length Truncation
+**Vulnerability:** Truncating raw input text to `max_len` before applying regex HTML tag stripping (`TAG_RE.sub`) allows malformed/unclosed HTML tags to bypass tag removal when the tag's closing `>` falls beyond the truncation boundary.
+**Learning:** Performing length truncation prior to regex tag stripping can split an HTML tag midway, removing the closing bracket `>`. The regex `r'<[^>]+>'` fails to match the unclosed tag fragment (e.g., `<iframe src="http://malicious`), which is then emitted raw into downstream outputs.
+**Prevention:** Always perform HTML entity unescaping, tag stripping, and control character removal on input text (bounded defensive length) *before* applying final length slicing `text[:max_len]`.
