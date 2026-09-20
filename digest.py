@@ -265,17 +265,6 @@ TOPIC_HEADERS_HTML = {
 
 VALID_TOPICS = set(TOPIC_COLORS.keys()) | {"Not UPSC Relevant"}
 
-# Optimization: Pre-calculate static back-to-topics navigation fragments
-BACK_TO_TOPICS_HTML = """
-          <div class="back-to-top">
-            <a href="#topic-index" class="back-to-top-link" aria-label="Back to topic index">Back to topics&nbsp;<span aria-hidden="true">&uarr;</span></a>
-          </div>"""
-
-BACK_TO_TOPICS_SMALL_HTML = """
-            <div class="back-to-top" style="margin-top: 8px;">
-              <a href="#topic-index" class="back-to-top-link" aria-label="Back to topic index" style="font-size: 11px;">Back to topics&nbsp;<span aria-hidden="true">&uarr;</span></a>
-            </div>"""
-
 TOPIC_ORDER = [
     "Polity & Governance",
     "Economy",
@@ -626,6 +615,7 @@ def render_html(grouped, category_angles):
 
         angles = safe_angles_grouped.get(topic, [])
         angles_html = ""
+        safe_topic_name = SAFE_TOPIC_NAMES.get(topic, html.escape(topic))
         if angles:
             bullets = "".join([f'<li class="exam-angle-bullet">{b}</li>' for b in angles])
             angles_header_id = f"angles-header-{anchor}"
@@ -635,11 +625,13 @@ def render_html(grouped, category_angles):
               <span aria-hidden="true">🎓</span> UPSC Exam Angles
             </h3>
             <ul class="exam-angles-list">{bullets}</ul>
-            {BACK_TO_TOPICS_SMALL_HTML}
+            <div class="back-to-top" style="margin-top: 8px;">
+              <a href="#topic-index" class="back-to-top-link" aria-label="Back to topic index from {safe_topic_name} exam angles" style="font-size: 11px;">Back to topics&nbsp;<span aria-hidden="true">&uarr;</span></a>
+            </div>
           </aside>"""
 
         # Optimization: Use pre-calculated topic header fragments
-        header_html = TOPIC_HEADERS_HTML.get(topic, SAFE_TOPIC_NAMES.get(topic, topic))
+        header_html = TOPIC_HEADERS_HTML.get(topic, safe_topic_name)
         sections_parts.append(f"""
         <section id="{anchor}" aria-labelledby="{header_id}" class="topic-section" tabindex="-1">
           <h2 id="{header_id}" class="topic-header" style="background:{color};">
@@ -647,7 +639,9 @@ def render_html(grouped, category_angles):
           </h2>
           {angles_html}
           {cards_html}
-          {BACK_TO_TOPICS_HTML}
+          <div class="back-to-top">
+            <a href="#topic-index" class="back-to-top-link" aria-label="Back to topic index from {safe_topic_name}">Back to topics&nbsp;<span aria-hidden="true">&uarr;</span></a>
+          </div>
         </section>""")
 
     sections_html = "".join(sections_parts)
@@ -696,6 +690,9 @@ def render_html(grouped, category_angles):
       filter: brightness(110%) !important;
       outline: 2px solid #1a1a2e !important;
       outline-offset: 2px;
+    }}
+    .topic-pill:active, .back-to-top-link:active, .read-more:active {{
+      transform: translateY(0) scale(0.98) !important;
     }}
     .topic-section {{ margin-bottom: 36px; }}
     .topic-header {{
@@ -833,6 +830,7 @@ def render_html(grouped, category_angles):
       padding: 10px 20px !important;
       border: 2px solid #fff !important;
       border-radius: 4px !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
       text-decoration: none !important;
       z-index: 9999 !important;
     }}
