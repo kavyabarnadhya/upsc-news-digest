@@ -49,3 +49,7 @@
 ## 2026-07-02 - [Fast-Path Search Before Regex Substitution & String Processing]
 **Learning:** Calling `re.sub` or `str.replace` unconditionally in batch processing functions creates unnecessary string allocations and regex engine overhead for inputs that do not contain target characters. Checking for presence first (`CONTROL_CHAR_RE.search(text)` or checking delimiter count `joined.count("\x00") != len(texts) - 1`) provides a fast path that avoids redundant processing on clean inputs (~1.15x–1.20x speedup) while fully preserving security and sanitization invariants.
 **Action:** Use fast-path search checks (`.search()` or presence checks) before running regex `sub` or list comprehensions with `str.replace` when processing high-volume text streams.
+
+## 2026-07-03 - [Optimization Trap: Consolidating batch_process_text with mixed do_bold flags]
+**Learning:** Attempting to consolidate two batch_process_text calls (one with do_bold=False and one with do_bold=True) into a single batch call in render_html resulted in a ~10% performance regression because re-joining and re-splitting the batch slice to apply regex bolding added more string allocation overhead than was saved by the single batch call.
+**Action:** Keep batch calls separate when transformation flags (like do_bold) differ across string subsets.
