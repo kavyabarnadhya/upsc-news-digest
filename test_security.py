@@ -333,12 +333,21 @@ class TestSecurity(unittest.TestCase):
         }
         html_body, _, _ = digest.render_html(grouped, category_angles)
 
-        # Check skip-link focus rule uses top/left/transform for centering absolute position
+        # Check skip-link focus rule uses top/left/transform for centering absolute position and elevated shadow
         self.assertIn("position: absolute !important;", html_body)
         self.assertIn("left: 50% !important;", html_body)
         self.assertIn("top: 10px !important;", html_body)
         self.assertIn("transform: translateX(-50%) !important;", html_body)
         self.assertIn("background: #1a1a2e !important;", html_body)
+        self.assertIn("box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;", html_body)
+
+        # Check active tactile state styling
+        self.assertIn(".topic-pill:active, .back-to-top-link:active, .read-more:active", html_body)
+        self.assertIn("transform: translateY(0) scale(0.98) !important;", html_body)
+
+        # Check contextualized ARIA labels on back-to-topics links
+        self.assertIn('aria-label="Back to topic index from Polity &amp; Governance"', html_body)
+        self.assertIn('aria-label="Back to topic index from Polity &amp; Governance exam angles"', html_body)
 
         # Check prefers-reduced-motion media query rule
         self.assertIn("@media (prefers-reduced-motion: reduce)", html_body)
