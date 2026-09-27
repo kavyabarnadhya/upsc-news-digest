@@ -181,6 +181,36 @@ class TestSecurity(unittest.TestCase):
         expected_headers = {"Content-Type": "text/xml", "content-location": authorized_url}
         mock_parse.assert_called_once_with(b"<rss></rss>", response_headers=expected_headers)
 
+        # Whitespace-padded authorized URL should be stripped and passed successfully
+        padded_url = f"   {authorized_url}   \n"
+        mock_response = MagicMock()
+        mock_response.read.side_effect = [b"<rss></rss>", b""]
+        mock_response.headers = {"Content-Type": "text/xml"}
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        try:
+            digest.fetch_from_feed(padded_url, "Authorized Padded")
+        except Exception as e:
+            self.fail(f"fetch_from_feed raised unexpected exception on whitespace-padded authorized URL: {e}")
+
+    def test_process_llm_articles_and_fetch_from_feed_handle_none_values(self):
+        # Test process_llm_articles with None values for summary and category angles
+        articles = [{"title": "T1", "link": "http://l1", "source": "S1", "summary": "Sum1"}]
+        llm_data = {
+            "articles": [
+                {
+                    "index": 0,
+                    "topic": "Economy",
+                    "summary": None
+                }
+            ],
+            "category_angles": {
+                "Economy": [None, "Valid Angle"]
+            }
+        }
+        classified, angles = digest.process_llm_articles(articles, llm_data)
+        self.assertEqual(classified[0]["summary"], "")
+        self.assertEqual(angles["Economy"], ["", "Valid Angle"])
+
     @patch("digest.urllib.request.build_opener")
     def test_fetch_feed_data_safely_oversized_headers(self, mock_build_opener):
         # Setup mock opener and response with Content-Length header that is too large

@@ -341,6 +341,8 @@ def fetch_feed_data_safely(url, timeout=15, max_bytes=10 * 1024 * 1024):
 
 def fetch_from_feed(url, source_name, limit=3):
     """Fetch up to `limit` articles from a single RSS feed URL."""
+    if isinstance(url, str):
+        url = url.strip()
     # Security: Enforce web protocols for all RSS feeds to prevent local file disclosure (LFD)
     if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
         raise ValueError(f"Secure protocol required: HTTP or HTTPS. Received: {url}")
@@ -358,15 +360,15 @@ def fetch_from_feed(url, source_name, limit=3):
         feed = feedparser.parse(data, response_headers=headers)
 
         for entry in feed.entries[:limit]:
-            raw_summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
+            raw_summary = getattr(entry, "summary", None) or getattr(entry, "description", None)
             # Apply clean_text early to save memory and token budget
             # Optimization: Use max_len=400 to avoid processing large RSS summaries.
             # We only use ~300 for classification and summaries are not in the final email.
             summary = clean_text(raw_summary, max_len=400)
             # Security: Sanitize all fields to prevent null byte collisions in batch processing
             articles.append({
-                "title": clean_text(str(entry.get("title", "")), max_len=200),
-                "link":  clean_text(str(entry.get("link", "")), max_len=500),
+                "title": clean_text(entry.get("title"), max_len=200),
+                "link":  clean_text(entry.get("link"), max_len=500),
                 "summary": summary,
                 "source": clean_source,
             })
@@ -423,7 +425,7 @@ def process_llm_articles(articles, data):
                 # Security: Strip control characters to prevent collisions in batch processing
                 # Limit to 5 bullets per topic, each max 300 chars
                 category_angles[topic_str] = [
-                    clean_text(str(b), max_len=300, strip_tags=False) for b in angles[:5]
+                    clean_text(b, max_len=300, strip_tags=False) for b in angles[:5]
                 ]
 
     if not isinstance(classified, list):
@@ -454,7 +456,7 @@ def process_llm_articles(articles, data):
             "link": original["link"],
             "source": original["source"],
             "topic": topic,
-            "summary": clean_text(str(item.get("summary", "")), max_len=1000, strip_tags=False),
+            "summary": clean_text(item.get("summary"), max_len=1000, strip_tags=False),
         })
 
         # Security: Final cap on total articles to keep payload size predictable
