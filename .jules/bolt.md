@@ -53,3 +53,7 @@
 ## 2026-07-03 - [Optimization Trap: Consolidating batch_process_text with mixed do_bold flags]
 **Learning:** Attempting to consolidate two batch_process_text calls (one with do_bold=False and one with do_bold=True) into a single batch call in render_html resulted in a ~10% performance regression because re-joining and re-splitting the batch slice to apply regex bolding added more string allocation overhead than was saved by the single batch call.
 **Action:** Keep batch calls separate when transformation flags (like do_bold) differ across string subsets.
+
+## 2026-07-04 - [Optimization Trap: Micro-optimizations on Cold Paths and Pre-Checking `html.escape`]
+**Learning:** Micro-optimizations on already-fast cold paths (e.g. replacing `.lower().startswith()` with pre-checks) degrade code readability without measurable benefit. Furthermore, adding `any(c in string ...)` before `html.escape` adds double-pass string scanning overhead whenever special characters exist.
+**Action:** Avoid micro-optimizations on cold paths, and ensure fast-path checks do not penalize standard inputs containing special characters.
