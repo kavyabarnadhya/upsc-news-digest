@@ -848,9 +848,11 @@ def render_html(grouped, category_angles):
       body {{ background: #121212 !important; color: #e0e0e0 !important; }}
       #top {{ background: #121212 !important; }}
       .topic-index, .article-card {{ background: #1e1e1e !important; border-color: #333 !important; }}
+      .topic-index-header {{ color: #aaa !important; }}
       .article-card h3 a {{ color: #e0e0e0 !important; }}
       .article-card p {{ color: #bbb !important; }}
       .article-card span {{ background: #333 !important; color: #aaa !important; }}
+      .read-more {{ color: #64b5f6 !important; }}
       .exam-angles {{ background: #1a1600 !important; border-left-color: #d97706 !important; }}
       .exam-angles h3 {{ color: #f59e0b !important; }}
       .exam-angles li {{ color: #d4d4d8 !important; }}

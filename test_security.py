@@ -383,6 +383,10 @@ class TestSecurity(unittest.TestCase):
         self.assertIn("@media (prefers-reduced-motion: reduce)", html_body)
         self.assertIn("scroll-behavior: auto !important;", html_body)
 
+        # Check dark mode contrast overrides
+        self.assertIn(".topic-index-header { color: #aaa !important; }", html_body)
+        self.assertIn(".read-more { color: #64b5f6 !important; }", html_body)
+
         # Check topic pill outline color on focus in dark mode
         self.assertIn(".topic-pill:hover, .topic-pill:focus-visible", html_body)
         self.assertIn("outline-color: #fff !important;", html_body)
