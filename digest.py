@@ -54,13 +54,18 @@ def batch_process_text(texts, do_bold=False):
     when no embedded null bytes are present, avoiding O(N) allocations/replaces.
     Security: Ensures any null bytes within string elements are stripped before joining
     to prevent array element corruption and delimiter injection during split.
+    Defensive Typing: Converts None and non-string inputs to string representation.
     """
     if not texts:
         return []
-    joined = "\x00".join(texts)
+    normalized_texts = [
+        "" if t is None else (t if isinstance(t, str) else str(t))
+        for t in texts
+    ]
+    joined = "\x00".join(normalized_texts)
     # Security & Performance: Only sanitize individual elements if embedded null bytes exist
-    if joined.count("\x00") != len(texts) - 1:
-        joined = "\x00".join(t.replace("\x00", "") for t in texts)
+    if joined.count("\x00") != len(normalized_texts) - 1:
+        joined = "\x00".join(t.replace("\x00", "") for t in normalized_texts)
     # Perform single batch HTML escape
     safe = html.escape(joined)
     # Perform single batch GS bolding if requested
@@ -1010,6 +1015,9 @@ def send_email(html_body, total_articles=None, reading_time=None):
 
     if not sender or not password or not receivers:
         raise ValueError("Missing required email credentials or receivers in send_email")
+
+    if not EMAIL_RE.match(sender):
+        raise ValueError(f"Invalid sender email address format: {sender}")
 
     # Security: Validate recipient email formats as defense-in-depth before connecting
     for r in receivers:

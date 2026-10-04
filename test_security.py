@@ -308,6 +308,16 @@ class TestSecurity(unittest.TestCase):
         self.assertEqual(processed[1], "Title2")
         self.assertEqual(processed[2], "Title3Part2")
 
+    def test_batch_process_text_defensive_typing(self):
+        # Test batch_process_text with None, integers, booleans, and non-string types
+        mixed_inputs = ["Valid String", None, 12345, True]
+        processed = digest.batch_process_text(mixed_inputs, do_bold=False)
+        self.assertEqual(len(processed), 4)
+        self.assertEqual(processed[0], "Valid String")
+        self.assertEqual(processed[1], "")
+        self.assertEqual(processed[2], "12345")
+        self.assertEqual(processed[3], "True")
+
     @patch("digest.Groq")
     @patch("digest.os.getenv")
     def test_get_groq_client_strips_key_whitespace(self, mock_getenv, mock_groq):
@@ -516,6 +526,17 @@ class TestSecurity(unittest.TestCase):
         }.get(key, default)
 
         with self.assertRaisesRegex(ValueError, "Invalid recipient email address format"):
+            digest.send_email("<html></html>", 0, 0)
+
+    @patch("digest.os.getenv")
+    def test_send_email_validates_sender_format(self, mock_getenv):
+        mock_getenv.side_effect = lambda key, default=None: {
+            "SENDER_EMAIL": "invalid-sender-email",
+            "SENDER_APP_PASSWORD": "abcd efgh ijkl mnop",
+            "RECEIVER_EMAIL": "receiver@test.test"
+        }.get(key, default)
+
+        with self.assertRaisesRegex(ValueError, "Invalid sender email address format"):
             digest.send_email("<html></html>", 0, 0)
 
 if __name__ == "__main__":
