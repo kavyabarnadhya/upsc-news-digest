@@ -395,6 +395,7 @@ class TestSecurity(unittest.TestCase):
 
         # Check dark mode contrast overrides
         self.assertIn(".topic-index-header { color: #aaa !important; }", html_body)
+        self.assertIn(".source-badge { background: #333 !important; color: #aaa !important; }", html_body)
         self.assertIn(".read-more { color: #64b5f6 !important; }", html_body)
 
         # Check topic pill outline color on focus in dark mode
