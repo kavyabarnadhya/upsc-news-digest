@@ -57,3 +57,7 @@
 ## 2026-07-04 - [Optimization Trap: Micro-optimizations on Cold Paths and Pre-Checking `html.escape`]
 **Learning:** Micro-optimizations on already-fast cold paths (e.g. replacing `.lower().startswith()` with pre-checks) degrade code readability without measurable benefit. Furthermore, adding `any(c in string ...)` before `html.escape` adds double-pass string scanning overhead whenever special characters exist.
 **Action:** Avoid micro-optimizations on cold paths, and ensure fast-path checks do not penalize standard inputs containing special characters.
+
+## 2026-07-04 - [Optimization Trap: Unrolling HTML F-String Literals to Single Lines]
+**Learning:** Collapsing multi-line Python HTML f-string literals into dense, single-line strings degrades code maintainability and readability without yielding significant execution gains in Python. Readability must never be sacrificed for string formatting micro-optimizations.
+**Action:** Preserve clean, indented multi-line string templates in Python rendering code and avoid micro-optimizations that harm maintainability.
