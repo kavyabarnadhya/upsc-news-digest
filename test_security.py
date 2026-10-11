@@ -438,6 +438,11 @@ class TestSecurity(unittest.TestCase):
         self.assertIn(">1 article <", html_body)
         self.assertIn('aria-label="Jump to Polity &amp; Governance section - 1 article, 1 min read"', html_body)
 
+        # Check topic section header count badge rendering and CSS styling
+        self.assertIn('<span class="topic-count-badge">1 article</span>', html_body)
+        self.assertIn(".topic-count-badge {", html_body)
+        self.assertIn("justify-content: space-between;", html_body)
+
         # Check CSS rules for cursor pointer and title underline feedback on card hover/focus
         self.assertIn("cursor: pointer;", html_body)
         self.assertIn(".article-card:hover .article-title a, .article-card:focus-within .article-title a", html_body)
