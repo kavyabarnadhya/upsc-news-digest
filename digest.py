@@ -444,7 +444,7 @@ def process_llm_articles(articles, data):
             continue
         idx = item.get("index")
         topic = item.get("topic", "")
-        if topic == "Not UPSC Relevant" or topic not in TOPIC_COLORS:
+        if not isinstance(topic, str) or topic == "Not UPSC Relevant" or topic not in TOPIC_COLORS:
             continue
         # Security: Validate index is a non-negative integer within bounds AND not already processed
         # Reject boolean type explicitly since in Python bool subclasses int (isinstance(True, int) is True)

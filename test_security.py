@@ -475,6 +475,23 @@ class TestSecurity(unittest.TestCase):
         self.assertEqual(classified[0]["title"], "Art 1")
         self.assertEqual(classified[0]["summary"], "Valid index 1")
 
+    def test_process_llm_articles_rejects_non_string_topic_type(self):
+        # Untrusted LLM output may contain non-string objects (dict, list, int, None) in topic field.
+        # Ensure process_llm_articles rejects them without throwing TypeError: unhashable type.
+        articles = [{"title": "Art 0", "link": "http://l0", "source": "S0", "summary": "Sum0"}]
+        llm_data = {
+            "articles": [
+                {"index": 0, "topic": {"nested": "dict"}, "summary": "SumDict"},
+                {"index": 0, "topic": ["Economy"], "summary": "SumList"},
+                {"index": 0, "topic": 12345, "summary": "SumInt"},
+                {"index": 0, "topic": None, "summary": "SumNone"},
+                {"index": 0, "topic": "Economy", "summary": "ValidTopic"}
+            ]
+        }
+        classified, _ = digest.process_llm_articles(articles, llm_data)
+        self.assertEqual(len(classified), 1)
+        self.assertEqual(classified[0]["summary"], "ValidTopic")
+
     def test_clean_text_defensive_typing(self):
         # Non-string inputs (integers, booleans, dicts, None) should be handled safely
         self.assertEqual(digest.clean_text(None), "")
