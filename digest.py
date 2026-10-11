@@ -647,10 +647,13 @@ def render_html(grouped, category_angles):
 
         # Optimization: Use pre-calculated topic header fragments
         header_html = TOPIC_HEADERS_HTML.get(topic, safe_topic_name)
+        topic_count = len(topic_articles)
+        topic_art_str = "1 article" if topic_count == 1 else f"{topic_count} articles"
         sections_parts.append(f"""
         <section id="{anchor}" aria-labelledby="{header_id}" class="topic-section" tabindex="-1">
           <h2 id="{header_id}" class="topic-header" style="background:{color};">
-            {header_html}
+            <span>{header_html}</span>
+            <span class="topic-count-badge">{topic_art_str}</span>
           </h2>
           {angles_html}
           {cards_html}
@@ -718,6 +721,18 @@ def render_html(grouped, category_angles):
       font-size: 18px;
       font-weight: 700;
       letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }}
+    .topic-count-badge {{
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 12px;
+      letter-spacing: 0.3px;
     }}
     .article-card {{
       background: #fff;
