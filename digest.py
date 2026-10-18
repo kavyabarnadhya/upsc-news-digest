@@ -587,7 +587,7 @@ def render_html(grouped, category_angles):
         index_bar_parts.append(
             f'<li role="listitem" class="index-item">'
             f'<a href="#{anchor}" class="topic-pill" aria-label="Jump to {safe_name} section - {topic_art_str}, {topic_time} min read" '
-            f'style="background:{color};">{header_html} ({count}) &bull; {topic_time} min</a>'
+            f'style="background:{color};">{header_html} ({count}) <span aria-hidden="true">&bull;</span> {topic_time} min</a>'
             f'</li>'
         )
     index_bar_items = f'<ul role="list" class="index-list">{"".join(index_bar_parts)}</ul>'
@@ -641,7 +641,7 @@ def render_html(grouped, category_angles):
             angles_html = f"""
           <aside class="exam-angles" aria-labelledby="{angles_header_id}">
             <h3 id="{angles_header_id}" class="exam-angles-header">
-              <span aria-hidden="true">🎓</span> UPSC Exam Angles
+              <span aria-hidden="true">🎓</span> UPSC Exam Angles<span class="sr-only"> for {safe_topic_name}</span>
             </h3>
             <ul class="exam-angles-list">{bullets}</ul>
             <div class="back-to-top" style="margin-top: 8px;">
@@ -693,6 +693,17 @@ def render_html(grouped, category_angles):
     }}
     [tabindex="-1"]:focus {{
       outline: none !important;
+    }}
+    .sr-only {{
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
     }}
     .index-list {{ list-style: none; padding: 0; margin: 0; }}
     .index-item {{ display: inline-block; margin: 0; }}
