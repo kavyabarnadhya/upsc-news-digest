@@ -408,8 +408,9 @@ def process_llm_articles(articles, data):
     """
     Security: Refactored logic to process LLM-generated JSON with robust validation,
     deduplication, and resource limits to prevent Denial of Service (DoS).
+    Defensive Typing: Validates sequence type of `articles` to prevent TypeError/IndexError.
     """
-    if not isinstance(data, dict):
+    if not isinstance(data, dict) or not isinstance(articles, (list, tuple)):
         return [], {}
 
     classified = data.get("articles")
@@ -453,13 +454,16 @@ def process_llm_articles(articles, data):
 
         seen_indices.add(idx)
         original = articles[idx]
+        if not isinstance(original, dict):
+            continue
+
         # Security: Defensive conversion to string and truncation before being used in HTML rendering
         # Security: Strip control characters to prevent collisions in batch processing
         # Limit summary to 1000 chars to prevent DoS via extremely large email payloads.
         result.append({
-            "title": original["title"],
-            "link": original["link"],
-            "source": original["source"],
+            "title": clean_text(original.get("title"), max_len=200),
+            "link": clean_text(original.get("link"), max_len=500),
+            "source": clean_text(original.get("source"), max_len=100),
             "topic": topic,
             "summary": clean_text(item.get("summary"), max_len=1000, strip_tags=False),
         })
@@ -531,11 +535,11 @@ def render_html(grouped, category_angles):
     links = []
     for a in all_articles_flat:
         l = a.get("link", "")
-        # Security: Strip leading/trailing whitespace and perform case-insensitive protocol check
+        # Security: Strip leading/trailing whitespace & control characters and perform case-insensitive protocol check
         if not isinstance(l, str):
             l = "#"
         else:
-            l = l.strip()
+            l = CONTROL_CHAR_RE.sub("", l.strip().replace("\r", "").replace("\n", ""))
             if not l.lower().startswith(("http://", "https://")):
                 l = "#"
         links.append(l)

@@ -497,6 +497,48 @@ class TestSecurity(unittest.TestCase):
         self.assertEqual(len(classified), 1)
         self.assertEqual(classified[0]["summary"], "ValidTopic")
 
+    def test_process_llm_articles_handles_non_sequence_articles(self):
+        # Ensure process_llm_articles safely returns empty results when `articles` is None, integer, or dict
+        llm_data = {"articles": [{"index": 0, "topic": "Economy", "summary": "Sum"}]}
+        self.assertEqual(digest.process_llm_articles(None, llm_data), ([], {}))
+        self.assertEqual(digest.process_llm_articles(12345, llm_data), ([], {}))
+        self.assertEqual(digest.process_llm_articles({"key": "val"}, llm_data), ([], {}))
+
+    def test_process_llm_articles_handles_malformed_article_dict(self):
+        # Ensure process_llm_articles handles non-dict original article items or missing dictionary keys cleanly
+        articles = [
+            "not_a_dict_article",
+            {"title": None, "link": "https://example.com/art1", "source": "The Hindu"}
+        ]
+        llm_data = {
+            "articles": [
+                {"index": 0, "topic": "Economy", "summary": "Summary 0"},
+                {"index": 1, "topic": "Economy", "summary": "Summary 1"}
+            ]
+        }
+        classified, _ = digest.process_llm_articles(articles, llm_data)
+        self.assertEqual(len(classified), 1)
+        self.assertEqual(classified[0]["title"], "")
+        self.assertEqual(classified[0]["link"], "https://example.com/art1")
+        self.assertEqual(classified[0]["source"], "The Hindu")
+
+    def test_render_html_link_control_character_sanitization(self):
+        # Test that render_html strips control characters and newlines embedded in link URLs
+        grouped = {
+            "Economy": [
+                {
+                    "title": "Article Title",
+                    "link": "  https://example.com/news\r\n\x00\x1f?id=123  ",
+                    "source": "The Hindu",
+                    "summary": "Summary"
+                }
+            ]
+        }
+        html_body, _, _ = digest.render_html(grouped, {})
+        self.assertIn('href="https://example.com/news?id=123"', html_body)
+        self.assertNotIn("\r", html_body)
+        self.assertNotIn("\n?id=123", html_body)
+
     def test_clean_text_defensive_typing(self):
         # Non-string inputs (integers, booleans, dicts, None) should be handled safely
         self.assertEqual(digest.clean_text(None), "")
