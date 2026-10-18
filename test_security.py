@@ -409,9 +409,14 @@ class TestSecurity(unittest.TestCase):
         # Check title link aria-label for external links
         self.assertIn('aria-label="Article Title (opens in new tab)"', html_body)
 
-        # Check exam angles semantic landmark <aside> with aria-labelledby
+        # Check sr-only CSS utility class and accessible topic context on callout heading
+        self.assertIn(".sr-only {", html_body)
         self.assertIn('<aside class="exam-angles" aria-labelledby="angles-header-polity-and-governance">', html_body)
         self.assertIn('<h3 id="angles-header-polity-and-governance" class="exam-angles-header">', html_body)
+        self.assertIn('UPSC Exam Angles<span class="sr-only"> for Polity &amp; Governance</span>', html_body)
+
+        # Check topic pill aria-hidden bullet span
+        self.assertIn('<span aria-hidden="true">&bull;</span>', html_body)
 
         # Check read-more accessibility and card hover animation
         self.assertIn('class="read-more" aria-label="Read full article: Article Title (opens in new tab)"', html_body)
