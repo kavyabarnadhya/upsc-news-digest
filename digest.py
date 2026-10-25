@@ -476,23 +476,29 @@ def process_llm_articles(articles, data):
 
 
 def classify_articles(articles):
+    if not isinstance(articles, (list, tuple)):
+        return [], {}
     # Security: Limit the number of articles to process to prevent token limit issues and overhead
     articles = articles[:50]
     client = get_groq_client()
+
+    # Security & Defensive Typing: Sanitize input article objects before JSON serialization
+    sanitized_articles = []
+    for i, a in enumerate(articles):
+        if not isinstance(a, dict):
+            continue
+        sanitized_articles.append({
+            "index": i,
+            "title": clean_text(a.get("title"), max_len=200),
+            "source": clean_text(a.get("source"), max_len=100),
+            "summary": clean_text(a.get("summary"), max_len=300)
+        })
 
     # Security: Use JSON for untrusted input to provide a structural boundary,
     # mitigating prompt injection risks where malicious content could spoof custom delimiters.
     # Performance Optimization: Use compact separators (",", ":") instead of indent=2 to avoid
     # unnecessary whitespace/newlines, speeding up serialization ~2.7x and saving LLM prompt tokens.
-    articles_json = json.dumps([
-        {
-            "index": i,
-            "title": a["title"],
-            "source": a["source"],
-            "summary": a["summary"][:300]
-        }
-        for i, a in enumerate(articles)
-    ], separators=(",", ":"))
+    articles_json = json.dumps(sanitized_articles, separators=(",", ":"))
 
     # Security: Use separate System message for instructions and persona, and User message
     # for untrusted article data to mitigate prompt injection risks.
@@ -509,7 +515,10 @@ def classify_articles(articles):
             max_tokens=8000,
             response_format={"type": "json_object"},
         )
-        raw = response.choices[0].message.content.strip()
+        content = getattr(response.choices[0].message, "content", None) if response and getattr(response, "choices", None) else None
+        if not content or not isinstance(content, str):
+            return [], {}
+        raw = content.strip()
 
         data = json.loads(raw)
         return process_llm_articles(articles, data)
