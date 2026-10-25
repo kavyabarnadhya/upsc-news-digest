@@ -425,6 +425,14 @@ class TestSecurity(unittest.TestCase):
         self.assertIn('<span aria-hidden="true">&rarr;</span>', html_body)
         self.assertIn(".article-card:hover .read-more, .article-card:focus-within .read-more", html_body)
 
+        # Check @media print accessibility overrides for headers, count badges, and GS tags
+        self.assertIn(".topic-header {", html_body)
+        self.assertIn("border-bottom: 2px solid #1a1a2e !important;", html_body)
+        self.assertIn(".topic-count-badge {", html_body)
+        self.assertIn("border: 1px solid #ccc !important;", html_body)
+        self.assertIn(".gs-tag {", html_body)
+        self.assertIn("border: 1px solid #1a1a2e !important;", html_body)
+
     def test_ux_enhancements(self):
         grouped_single = {
             "Polity & Governance": [

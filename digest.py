@@ -935,6 +935,22 @@ def render_html(grouped, category_angles):
       #top {{ max-width: 100% !important; padding: 0 !important; }}
       .skip-link, .topic-index, .back-to-top, .read-more {{ display: none !important; }}
       .article-card, .exam-angles {{ break-inside: avoid; border: 1px solid #eee !important; }}
+      .topic-header {{
+        color: #1a1a2e !important;
+        background: transparent !important;
+        border-bottom: 2px solid #1a1a2e !important;
+        padding: 8px 0 !important;
+      }}
+      .topic-count-badge {{
+        color: #555 !important;
+        background: #f0f0f0 !important;
+        border: 1px solid #ccc !important;
+      }}
+      .gs-tag {{
+        color: #1a1a2e !important;
+        background: #f0f0f0 !important;
+        border: 1px solid #1a1a2e !important;
+      }}
       .article-title a::after {{
         content: " (" attr(href) ")" !important;
         position: static !important;

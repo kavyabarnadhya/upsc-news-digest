@@ -53,3 +53,7 @@
 ## 2026-10-15 - [Section-Level Volume Context & Heading Navigation in Email Digests]
 **Learning:** Displaying inline count badges inside section headers (`<h2>`) provides immediate visual context on article volume while users scroll through long email digests. When paired with `aria-labelledby` on parent `<section>` regions, screen readers and assistive technology announce both the section title and the article count during heading/landmark navigation (e.g., "Polity & Governance, 3 articles, heading level 2"), significantly improving scannability for both visual and screen reader users.
 **Action:** Include proper singular/plural volume badges in section heading elements and align them using flexbox (`justify-content: space-between`).
+
+## 2026-10-25 - [Print CSS Contrast Overrides for Light-Text Elements]
+**Learning:** Elements styled with white text on dark/colored backgrounds (`.topic-header`, `.topic-count-badge`, `.gs-tag`) become invisible white-on-white text when printed or saved as PDF because browser print dialogs default to suppressing background colors (`print-color-adjust: economy`). Overriding these elements in `@media print` with explicit dark text (`color: #1a1a2e !important;`), transparent or light neutral backgrounds, and high-contrast borders guarantees 100% legibility and paper/ink efficiency for printed study guides.
+**Action:** Always override light-text/colored-background badges and section headers in `@media print` with explicit dark text colors and structural borders.
