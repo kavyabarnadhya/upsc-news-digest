@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import os
+import json
 import digest
 
 class TestSecurity(unittest.TestCase):
@@ -608,6 +609,40 @@ class TestSecurity(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Invalid sender email address format"):
             digest.send_email("<html></html>", 0, 0)
+
+    @patch("digest.get_groq_client")
+    def test_classify_articles_input_validation_and_defensive_typing(self, mock_get_client):
+        # 1. Test with non-sequence inputs (None, int, dict)
+        self.assertEqual(digest.classify_articles(None), ([], {}))
+        self.assertEqual(digest.classify_articles(12345), ([], {}))
+        self.assertEqual(digest.classify_articles({"key": "val"}), ([], {}))
+
+        # 2. Test with malformed article items (non-dict, missing keys, None values)
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content=json.dumps({
+                "articles": [{"index": 1, "topic": "Economy", "summary": "Valid summary."}],
+                "category_angles": {}
+            })))
+        ]
+        mock_client.chat.completions.create.return_value = mock_response
+
+        malformed_articles = [
+            "not_a_dict",
+            {"title": None, "source": "Source 1", "summary": None},
+            {"title": "Valid Title", "source": None, "summary": "Valid summary"}
+        ]
+
+        classified, _ = digest.classify_articles(malformed_articles)
+        self.assertEqual(len(classified), 1)
+
+        # 3. Test with None or invalid LLM completion response content
+        mock_response_empty = MagicMock()
+        mock_response_empty.choices = [MagicMock(message=MagicMock(content=None))]
+        mock_client.chat.completions.create.return_value = mock_response_empty
+        self.assertEqual(digest.classify_articles([{"title": "T", "source": "S", "summary": "S"}]), ([], {}))
 
 if __name__ == "__main__":
     unittest.main()
