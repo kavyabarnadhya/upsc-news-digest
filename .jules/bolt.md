@@ -61,3 +61,7 @@
 ## 2026-07-04 - [Optimization Trap: Unrolling HTML F-String Literals to Single Lines]
 **Learning:** Collapsing multi-line Python HTML f-string literals into dense, single-line strings degrades code maintainability and readability without yielding significant execution gains in Python. Readability must never be sacrificed for string formatting micro-optimizations.
 **Action:** Preserve clean, indented multi-line string templates in Python rendering code and avoid micro-optimizations that harm maintainability.
+
+## 2026-07-05 - [Optimization Trap: Module-Level Dictionary Pre-calculation for Small Topic Iterations]
+**Learning:** Pre-calculating formatted string IDs (like section header IDs and ARIA back-link labels) into module-level dictionaries for a small, bounded list of topics (~8 items) adds global state complexity for nanosecond-level gains. F-string formatting inside small loops is already extremely fast in Python.
+**Action:** Avoid replacing f-string formatting inside small, bounded loops with global lookup dictionaries unless the loop executes tens of thousands of times.
