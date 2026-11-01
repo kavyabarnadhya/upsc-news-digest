@@ -193,6 +193,33 @@ EXPANSION_FEEDS = {
 # Security: Whitelist of allowed RSS feed URLs to prevent SSRF and unauthorized outgoing requests
 ALLOWED_FEEDS = set(FEEDS.values()) | {url for urls in EXPANSION_FEEDS.values() for url in urls}
 
+
+def is_allowed_feed_url(url):
+    """
+    Security Standard: Validates and normalizes feed URLs against ALLOWED_FEEDS to prevent
+    SSRF. Normalizes scheme and host to lowercase, strips default ports (80/443), strips userinfo,
+    and removes fragments before comparison.
+    """
+    if not isinstance(url, str):
+        return False
+    url = url.strip()
+    try:
+        parsed = urllib.parse.urlsplit(url)
+    except Exception:
+        return False
+    scheme = parsed.scheme.lower()
+    if scheme not in ("http", "https"):
+        return False
+    netloc = parsed.netloc.lower()
+    if "@" in netloc:
+        netloc = netloc.split("@", 1)[1]
+    if ":" in netloc:
+        host, port = netloc.split(":", 1)
+        if (scheme == "http" and port == "80") or (scheme == "https" and port == "443"):
+            netloc = host
+    normalized = urllib.parse.urlunsplit((scheme, netloc, parsed.path, parsed.query, ""))
+    return normalized in ALLOWED_FEEDS
+
 TOPIC_COLORS = {
     "International Relations": "#a93226",
     "Economy": "#196f3d",
@@ -301,11 +328,10 @@ class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
             # Resolve relative redirect URLs against original request URL before validation
             if getattr(req, "full_url", None):
                 newurl = urllib.parse.urljoin(req.full_url, newurl)
-        # Ensure redirect URL has a safe web protocol
+        # Ensure redirect URL has a safe web protocol and is in the ALLOWED_FEEDS whitelist
         if not isinstance(newurl, str) or not newurl.lower().startswith(("http://", "https://")):
             raise ValueError(f"Secure protocol required for redirect: HTTP or HTTPS. Received: {newurl}")
-        # Enforce that redirect target is also in the ALLOWED_FEEDS whitelist
-        if newurl not in ALLOWED_FEEDS:
+        if not is_allowed_feed_url(newurl):
             raise ValueError(f"Unauthorized redirect target: {newurl}")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -352,7 +378,7 @@ def fetch_from_feed(url, source_name, limit=3):
     if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
         raise ValueError(f"Secure protocol required: HTTP or HTTPS. Received: {url}")
     # Security: Restrict fetching to whitelisted RSS feed URLs to prevent SSRF and unauthorized requests
-    if url not in ALLOWED_FEEDS:
+    if not is_allowed_feed_url(url):
         raise ValueError(f"Unauthorized feed URL: {url}")
 
     articles = []

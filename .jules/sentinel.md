@@ -60,3 +60,8 @@
 **Vulnerability:** Truncating raw input text to `max_len` before applying regex HTML tag stripping (`TAG_RE.sub`) allows malformed/unclosed HTML tags to bypass tag removal when the tag's closing `>` falls beyond the truncation boundary.
 **Learning:** Performing length truncation prior to regex tag stripping can split an HTML tag midway, removing the closing bracket `>`. The regex `r'<[^>]+>'` fails to match the unclosed tag fragment (e.g., `<iframe src="http://malicious`), which is then emitted raw into downstream outputs.
 **Prevention:** Always perform HTML entity unescaping, tag stripping, and control character removal on input text (bounded defensive length) *before* applying final length slicing `text[:max_len]`.
+
+## 2026-08-16 - Feed URL Normalization in Open Redirect and SSRF Defenses
+**Vulnerability:** Exact string membership testing against `ALLOWED_FEEDS` causes valid redirects (or initial feed requests) to fail when external feed servers redirect to canonical equivalent URLs with explicit default ports (`:443`), uppercase hostnames, stripped userinfo, or trailing fragments.
+**Learning:** Comparing raw URL strings directly against an allowlist fails to account for RFC 3986 URL equivalence. Variations such as default ports (80/443), case variations in schemes/hostnames, and URL fragments represent the exact same network resource but fail exact string equality checks.
+**Prevention:** Always normalize incoming and redirect URLs using `urllib.parse.urlsplit` (lowercasing scheme and netloc, stripping default ports, userinfo, and fragments) before performing membership lookups against the whitelist.

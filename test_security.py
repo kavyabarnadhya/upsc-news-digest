@@ -257,6 +257,38 @@ class TestSecurity(unittest.TestCase):
             handler.redirect_request(None, None, 302, "Found", None, authorized_url)
             mock_super.assert_called_once_with(None, None, 302, "Found", None, authorized_url)
 
+    def test_is_allowed_feed_url_normalization(self):
+        authorized_url = list(digest.ALLOWED_FEEDS)[0]
+        # Exact match
+        self.assertTrue(digest.is_allowed_feed_url(authorized_url))
+
+        # Uppercase scheme & hostname
+        upper_url = authorized_url.replace("https://", "HTTPS://").replace("www.", "WWW.")
+        self.assertTrue(digest.is_allowed_feed_url(upper_url))
+
+        # Explicit default port (:443 for https)
+        parts = authorized_url.split("/", 3)
+        port_url = f"{parts[0]}//{parts[2]}:443/{parts[3]}"
+        self.assertTrue(digest.is_allowed_feed_url(port_url))
+
+        # Trailing fragment stripping
+        fragment_url = f"{authorized_url}#summary-section"
+        self.assertTrue(digest.is_allowed_feed_url(fragment_url))
+
+        # Attacker subdomain / suffix bypass attempts
+        evil_domain_url = f"{parts[0]}//{parts[2]}.evil.com/{parts[3]}"
+        self.assertFalse(digest.is_allowed_feed_url(evil_domain_url))
+
+        # Invalid schemes (file://, javascript://, ftp://)
+        self.assertFalse(digest.is_allowed_feed_url("file:///etc/passwd"))
+        self.assertFalse(digest.is_allowed_feed_url("javascript:alert(1)"))
+        self.assertFalse(digest.is_allowed_feed_url("ftp://example.com/feed.xml"))
+
+        # Non-string or malformed inputs
+        self.assertFalse(digest.is_allowed_feed_url(None))
+        self.assertFalse(digest.is_allowed_feed_url(12345))
+        self.assertFalse(digest.is_allowed_feed_url(""))
+
     def test_safe_redirect_handler_relative_authorized(self):
         handler = digest.SafeRedirectHandler()
         authorized_url = "https://www.thehindu.com/news/national/feeder/default.rss"
