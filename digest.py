@@ -194,31 +194,51 @@ EXPANSION_FEEDS = {
 ALLOWED_FEEDS = set(FEEDS.values()) | {url for urls in EXPANSION_FEEDS.values() for url in urls}
 
 
-def is_allowed_feed_url(url):
+# Security: any whitespace, control character or backslash anywhere in a feed URL is rejected outright.
+# urlsplit() silently deletes \t, \r and \n, and browsers/proxies treat "\" like "/", so such input is a
+# validator-vs-connector parser-differential risk. No allowlisted URL contains these characters.
+_FEED_URL_FORBIDDEN_RE = re.compile(r"[\x00-\x20\x7f-\x9f\\]")
+_DEFAULT_PORTS = {"http": "80", "https": "443"}
+
+
+def canonical_feed_url(url):
     """
-    Security Standard: Validates and normalizes feed URLs against ALLOWED_FEEDS to prevent
-    SSRF. Normalizes scheme and host to lowercase, strips default ports (80/443), strips userinfo,
-    and removes fragments before comparison.
+    Security Standard: Return the ALLOWED_FEEDS entry that `url` is a genuine equivalent of,
+    or None if it is not allowed. Callers must request the RETURNED string (never the raw input),
+    so the exact validated form is what reaches the network layer.
+
+    Accepted equivalences (and nothing else): case of scheme/host, an explicit default port
+    (:80 for http, :443 for https), an empty or non-empty fragment, and an empty query marker.
+    Rejected: userinfo ('@' in the authority), backslashes, whitespace/control characters,
+    IPv6 literals, non-default or malformed ports, trailing-dot hosts and percent-encoded hosts
+    (none of these are RFC 3986 equivalents of an allowlisted URL).
     """
     if not isinstance(url, str):
-        return False
+        return None
     url = url.strip()
+    if not url or _FEED_URL_FORBIDDEN_RE.search(url):
+        return None
     try:
         parsed = urllib.parse.urlsplit(url)
     except Exception:
-        return False
+        return None
     scheme = parsed.scheme.lower()
-    if scheme not in ("http", "https"):
-        return False
+    if scheme not in _DEFAULT_PORTS:
+        return None
     netloc = parsed.netloc.lower()
-    if "@" in netloc:
-        netloc = netloc.split("@", 1)[1]
+    if not netloc or "@" in netloc or "[" in netloc or "]" in netloc:
+        return None
     if ":" in netloc:
-        host, port = netloc.split(":", 1)
-        if (scheme == "http" and port == "80") or (scheme == "https" and port == "443"):
+        host, _, port = netloc.rpartition(":")
+        if port == _DEFAULT_PORTS[scheme]:
             netloc = host
     normalized = urllib.parse.urlunsplit((scheme, netloc, parsed.path, parsed.query, ""))
-    return normalized in ALLOWED_FEEDS
+    return normalized if normalized in ALLOWED_FEEDS else None
+
+
+def is_allowed_feed_url(url):
+    """Security Standard: True only if `url` canonicalizes to an ALLOWED_FEEDS entry."""
+    return canonical_feed_url(url) is not None
 
 TOPIC_COLORS = {
     "International Relations": "#a93226",
@@ -331,9 +351,11 @@ class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
         # Ensure redirect URL has a safe web protocol and is in the ALLOWED_FEEDS whitelist
         if not isinstance(newurl, str) or not newurl.lower().startswith(("http://", "https://")):
             raise ValueError(f"Secure protocol required for redirect: HTTP or HTTPS. Received: {newurl}")
-        if not is_allowed_feed_url(newurl):
+        canonical = canonical_feed_url(newurl)
+        if canonical is None:
             raise ValueError(f"Unauthorized redirect target: {newurl}")
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        # Follow the validated canonical form, never the raw Location value
+        return super().redirect_request(req, fp, code, msg, headers, canonical)
 
 
 def fetch_feed_data_safely(url, timeout=15, max_bytes=10 * 1024 * 1024):
@@ -378,8 +400,11 @@ def fetch_from_feed(url, source_name, limit=3):
     if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
         raise ValueError(f"Secure protocol required: HTTP or HTTPS. Received: {url}")
     # Security: Restrict fetching to whitelisted RSS feed URLs to prevent SSRF and unauthorized requests
-    if not is_allowed_feed_url(url):
+    canonical = canonical_feed_url(url)
+    if canonical is None:
         raise ValueError(f"Unauthorized feed URL: {url}")
+    # Request exactly the validated canonical form, never the raw input
+    url = canonical
 
     articles = []
     try:

@@ -257,37 +257,142 @@ class TestSecurity(unittest.TestCase):
             handler.redirect_request(None, None, 302, "Found", None, authorized_url)
             mock_super.assert_called_once_with(None, None, 302, "Found", None, authorized_url)
 
-    def test_is_allowed_feed_url_normalization(self):
-        authorized_url = list(digest.ALLOWED_FEEDS)[0]
-        # Exact match
-        self.assertTrue(digest.is_allowed_feed_url(authorized_url))
+    # Deterministic allowlisted URL (a `www.` host with a path) - never pick from a set, whose order varies per run
+    FEED = "https://www.thehindu.com/news/national/feeder/default.rss"
+    HOST = "www.thehindu.com"
+    PATH = "/news/national/feeder/default.rss"
 
-        # Uppercase scheme & hostname
-        upper_url = authorized_url.replace("https://", "HTTPS://").replace("www.", "WWW.")
-        self.assertTrue(digest.is_allowed_feed_url(upper_url))
+    def test_is_allowed_feed_url_accepts_only_genuine_equivalents(self):
+        self.assertIn(self.FEED, digest.ALLOWED_FEEDS)
+        accepted = {
+            "exact": self.FEED,
+            "uppercase scheme": self.FEED.replace("https://", "HTTPS://"),
+            "uppercase host": self.FEED.replace(self.HOST, self.HOST.upper()),
+            "explicit :443": f"https://{self.HOST}:443{self.PATH}",
+            "fragment": f"{self.FEED}#summary-section",
+            "empty fragment": f"{self.FEED}#",
+            "everything combined": f"HTTPS://{self.HOST.upper()}:443{self.PATH}#x",
+            "surrounding whitespace": f"  {self.FEED}\n",
+        }
+        for label, url in accepted.items():
+            with self.subTest(label):
+                self.assertTrue(digest.is_allowed_feed_url(url))
+                # The canonical form IS the allowlist entry, so what is validated is what gets requested
+                self.assertEqual(digest.canonical_feed_url(url), self.FEED)
 
-        # Explicit default port (:443 for https)
-        parts = authorized_url.split("/", 3)
-        port_url = f"{parts[0]}//{parts[2]}:443/{parts[3]}"
-        self.assertTrue(digest.is_allowed_feed_url(port_url))
+    def test_is_allowed_feed_url_rejects_bypass_shapes(self):
+        H, P = self.HOST, self.PATH
+        rejected = {
+            # userinfo, both directions, double @
+            "userinfo": f"https://user@{H}{P}",
+            "userinfo with password": f"https://user:pw@{H}{P}",
+            "evil userinfo before allowed host": f"https://evil.com@{H}{P}",
+            "allowed userinfo before evil host": f"https://{H}@evil.com{P}",
+            "double @ (evil first)": f"https://x@evil.com@{H}{P}",
+            "double @ (allowed last)": f"https://{H}@x@evil.com{P}",
+            "bare @": f"https://@{H}{P}",
+            # backslash (browsers/proxies treat it as /)
+            "backslash evil@allowed": f"https://evil.com\\@{H}{P}",
+            "backslash allowed@evil": f"https://{H}\\@evil.com{P}",
+            "backslash path": f"https://{H}\\{P[1:]}",
+            # control characters that urlsplit would silently delete
+            "tab in userinfo": f"https://evil.com\t@{H}{P}",
+            "LF in userinfo": f"https://evil.com\n@{H}{P}",
+            "CR in host": f"https://{H[:4]}\r{H[4:]}{P}",
+            "tab in host": f"https://{H[:4]}\t{H[4:]}{P}",
+            "LF in path": f"https://{H}{P[:6]}\n{P[6:]}",
+            "NUL": f"{self.FEED}\x00",
+            "inner space": f"https://{H} .evil.com{P}",
+            # ports
+            ":80 on https": f"https://{H}:80{P}",
+            ":0": f"https://{H}:0{P}",
+            "empty port": f"https://{H}:{P}",
+            "zero-padded :0443": f"https://{H}:0443{P}",
+            "non-numeric port": f"https://{H}:abc{P}",
+            "other port": f"https://{H}:8443{P}",
+            "double port": f"https://{H}:443:443{P}",
+            # scheme
+            "http downgrade": f"http://{H}{P}",
+            "http downgrade :80": f"http://{H}:80{P}",
+            # IPv6 literals
+            "ipv6": "https://[::1]/feed",
+            "ipv6 :443": "https://[::1]:443/feed",
+            "ipv6 in userinfo position": f"https://[::1]@{H}{P}",
+            # host tricks
+            "trailing dot": f"https://{H}.{P}",
+            "percent-encoded host": f"https://%77ww.thehindu.com{P}",
+            "percent-encoded dot": f"https://www%2ethehindu.com{P}",
+            "suffix domain": f"https://{H}.evil.com{P}",
+            "prefix domain": f"https://evil{H}{P}",
+            "fullwidth host": f"https://{H.replace('w', chr(0xFF57))}{P}",
+            "punycode lookalike": f"https://xn--{H}{P}",
+            # malformed / relative forms
+            "scheme-relative": f"//{H}{P}",
+            "https:host (no slashes)": f"https:{H}{P}",
+            "https:/host (one slash)": f"https:/{H}{P}",
+            "no host": f"https:///{P[1:]}",
+            # path/query are compared exactly
+            "path case changed": f"https://{H}{P.upper()}",
+            "extra query": f"{self.FEED}?a=1",
+            "extra path segment": f"{self.FEED}/x",
+            # wrong schemes
+            "file": "file:///etc/passwd",
+            "javascript": "javascript:alert(1)",
+            "ftp": "ftp://example.com/feed.xml",
+            "empty string": "",
+            "whitespace only": "   ",
+        }
+        for label, url in rejected.items():
+            with self.subTest(label):
+                self.assertFalse(digest.is_allowed_feed_url(url), url)
+                self.assertIsNone(digest.canonical_feed_url(url), url)
 
-        # Trailing fragment stripping
-        fragment_url = f"{authorized_url}#summary-section"
-        self.assertTrue(digest.is_allowed_feed_url(fragment_url))
+    def test_is_allowed_feed_url_rejects_non_strings(self):
+        for value in (None, 12345, b"https://www.thehindu.com/", ["x"], object()):
+            with self.subTest(repr(value)):
+                self.assertFalse(digest.is_allowed_feed_url(value))
+                self.assertIsNone(digest.canonical_feed_url(value))
 
-        # Attacker subdomain / suffix bypass attempts
-        evil_domain_url = f"{parts[0]}//{parts[2]}.evil.com/{parts[3]}"
-        self.assertFalse(digest.is_allowed_feed_url(evil_domain_url))
+    @patch("digest.urllib.request.build_opener")
+    @patch("digest.feedparser.parse")
+    def test_fetch_from_feed_requests_canonical_form(self, mock_parse, mock_build_opener):
+        mock_opener = MagicMock()
+        mock_response = MagicMock()
+        mock_response.read.side_effect = [b"<rss></rss>", b""]
+        mock_response.headers = {"Content-Type": "text/xml"}
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        mock_build_opener.return_value = mock_opener
+        mock_parse.return_value.entries = []
 
-        # Invalid schemes (file://, javascript://, ftp://)
-        self.assertFalse(digest.is_allowed_feed_url("file:///etc/passwd"))
-        self.assertFalse(digest.is_allowed_feed_url("javascript:alert(1)"))
-        self.assertFalse(digest.is_allowed_feed_url("ftp://example.com/feed.xml"))
+        digest.fetch_from_feed(f"HTTPS://{self.HOST.upper()}:443{self.PATH}#x", "Canonical")
+        requested = mock_opener.open.call_args[0][0]
+        self.assertEqual(requested.full_url, self.FEED)
 
-        # Non-string or malformed inputs
-        self.assertFalse(digest.is_allowed_feed_url(None))
-        self.assertFalse(digest.is_allowed_feed_url(12345))
-        self.assertFalse(digest.is_allowed_feed_url(""))
+        # Userinfo / backslash shapes are refused before any request is built
+        mock_opener.open.reset_mock()
+        for bad in (f"https://evil.com@{self.HOST}{self.PATH}", f"https://evil.com\\@{self.HOST}{self.PATH}"):
+            with self.subTest(bad):
+                with self.assertRaisesRegex(ValueError, "Unauthorized feed URL"):
+                    digest.fetch_from_feed(bad, "Bad")
+        mock_opener.open.assert_not_called()
+
+    def test_safe_redirect_handler_passes_canonical_form_and_rejects_bypasses(self):
+        handler = digest.SafeRedirectHandler()
+        with patch("urllib.request.HTTPRedirectHandler.redirect_request") as mock_super:
+            handler.redirect_request(None, None, 302, "Found", None, f"HTTPS://{self.HOST.upper()}:443{self.PATH}#x")
+            mock_super.assert_called_once_with(None, None, 302, "Found", None, self.FEED)
+        for bad in (
+            f"https://evil.com@{self.HOST}{self.PATH}",
+            f"https://{self.HOST}@evil.com{self.PATH}",
+            f"https://evil.com\\@{self.HOST}{self.PATH}",
+            f"https://{self.HOST}:80{self.PATH}",
+            f"http://{self.HOST}{self.PATH}",
+        ):
+            with self.subTest(bad):
+                with patch("urllib.request.HTTPRedirectHandler.redirect_request") as mock_super:
+                    with self.assertRaisesRegex(ValueError, "Unauthorized redirect target"):
+                        handler.redirect_request(None, None, 302, "Found", None, bad)
+                    mock_super.assert_not_called()
 
     def test_safe_redirect_handler_relative_authorized(self):
         handler = digest.SafeRedirectHandler()
