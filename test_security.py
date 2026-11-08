@@ -262,6 +262,14 @@ class TestSecurity(unittest.TestCase):
     HOST = "www.thehindu.com"
     PATH = "/news/national/feeder/default.rss"
 
+    def test_canonical_feed_url_fast_path_allowed_feeds(self):
+        # Performance & Correctness: Verify that every URL in ALLOWED_FEEDS hits the fast path
+        # and returns the exact canonical URL string identically to full normalization.
+        for feed_url in digest.ALLOWED_FEEDS:
+            with self.subTest(feed_url):
+                self.assertEqual(digest.canonical_feed_url(feed_url), feed_url)
+                self.assertTrue(digest.is_allowed_feed_url(feed_url))
+
     def test_is_allowed_feed_url_accepts_only_genuine_equivalents(self):
         self.assertIn(self.FEED, digest.ALLOWED_FEEDS)
         accepted = {

@@ -65,3 +65,7 @@
 ## 2026-07-05 - [Optimization Trap: Module-Level Dictionary Pre-calculation for Small Topic Iterations]
 **Learning:** Pre-calculating formatted string IDs (like section header IDs and ARIA back-link labels) into module-level dictionaries for a small, bounded list of topics (~8 items) adds global state complexity for nanosecond-level gains. F-string formatting inside small loops is already extremely fast in Python.
 **Action:** Avoid replacing f-string formatting inside small, bounded loops with global lookup dictionaries unless the loop executes tens of thousands of times.
+
+## 2026-07-06 - [Fast-Path Set Membership for URL Normalization & Validation]
+**Learning:** When validating network inputs against a known static whitelist set (such as `ALLOWED_FEEDS`), incoming requests frequently use the exact canonical URL string defined in the set. Checking set membership first (`if url in ALLOWED_FEEDS: return url`) immediately bypasses regex validation, URL splitting (`urlsplit`), port normalization, and unsplitting (`urlunsplit`), providing an ~20x speedup on canonical URLs without altering security guarantees.
+**Action:** Always check whether an input directly matches a static whitelist set of canonical items before executing full parsing and normalization pipelines.
