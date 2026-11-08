@@ -57,3 +57,7 @@
 ## 2026-10-25 - [Print CSS Contrast Overrides for Light-Text Elements]
 **Learning:** Elements styled with white text on dark/colored backgrounds (`.topic-header`, `.topic-count-badge`, `.gs-tag`) become invisible white-on-white text when printed or saved as PDF because browser print dialogs default to suppressing background colors (`print-color-adjust: economy`). Overriding these elements in `@media print` with explicit dark text (`color: #1a1a2e !important;`), transparent or light neutral backgrounds, and high-contrast borders guarantees 100% legibility and paper/ink efficiency for printed study guides.
 **Action:** Always override light-text/colored-background badges and section headers in `@media print` with explicit dark text colors and structural borders.
+
+## 2026-11-04 - [Dark Mode Accent Contrast for Colored Container Borders]
+**Learning:** Saturated and darkened category theme colors (e.g., `#2c3e50`, `#6c3483`, `#21618c`) that pass WCAG AA (> 4.5:1) against white cards in light mode drop below 2.5:1 against dark container backgrounds (such as `#1e1e1e`), rendering structural accents like left card border indicators nearly invisible. Overriding card accent borders in `@media (prefers-color-scheme: dark)` with a bright, high-contrast accent color (e.g. `#64b5f6`, providing > 7.5:1 contrast against `#1e1e1e`) restores visual card hierarchy and section scannability.
+**Action:** In dark mode stylesheets, explicitly override low-contrast colored container borders and accent stripes with accessible, high-contrast dark-mode theme accents.

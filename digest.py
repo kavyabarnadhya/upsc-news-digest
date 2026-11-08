@@ -952,6 +952,7 @@ def render_html(grouped, category_angles):
       body {{ background: #121212 !important; color: #e0e0e0 !important; }}
       #top {{ background: #121212 !important; }}
       .topic-index, .article-card {{ background: #1e1e1e !important; border-color: #333 !important; }}
+      .article-card {{ border-left-color: #64b5f6 !important; }}
       .topic-index-header {{ color: #aaa !important; }}
       .article-card h3 a {{ color: #e0e0e0 !important; }}
       .article-card p {{ color: #bbb !important; }}

@@ -540,6 +540,9 @@ class TestSecurity(unittest.TestCase):
         self.assertIn(".topic-pill:hover, .topic-pill:focus-visible", html_body)
         self.assertIn("outline-color: #fff !important;", html_body)
 
+        # Check article-card left border contrast override in dark mode
+        self.assertIn(".article-card { border-left-color: #64b5f6 !important; }", html_body)
+
         # Check article-card hover state in dark mode
         self.assertIn(".article-card:hover, .article-card:focus-within", html_body)
         self.assertIn("box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05) !important;", html_body)
