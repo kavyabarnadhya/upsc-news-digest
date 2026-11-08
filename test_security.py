@@ -193,6 +193,36 @@ class TestSecurity(unittest.TestCase):
         except Exception as e:
             self.fail(f"fetch_from_feed raised unexpected exception on whitespace-padded authorized URL: {e}")
 
+    @patch("digest.urllib.request.build_opener")
+    @patch("digest.feedparser.parse")
+    def test_fetch_from_feed_entry_link_sanitization(self, mock_parse, mock_build_opener):
+        # Setup mock opener and response
+        mock_opener = MagicMock()
+        mock_response = MagicMock()
+        mock_response.read.side_effect = [b"<rss></rss>", b""]
+        mock_response.headers = {"Content-Type": "text/xml"}
+        mock_opener.open.return_value.__enter__.return_value = mock_response
+        mock_build_opener.return_value = mock_opener
+
+        # Mock feedparser entries with dangerous/malformed links
+        mock_parse.return_value.entries = [
+            MagicMock(title="Valid Title", link="https://example.com/art1", description="Desc 1", get=lambda k, default=None: {"title": "Valid Title", "link": "https://example.com/art1"}.get(k, default)),
+            MagicMock(title="Javascript Link", link="javascript:alert(1)", description="Desc 2", get=lambda k, default=None: {"title": "Javascript Link", "link": "javascript:alert(1)"}.get(k, default)),
+            MagicMock(title="File Link", link="file:///etc/passwd", description="Desc 3", get=lambda k, default=None: {"title": "File Link", "link": "file:///etc/passwd"}.get(k, default)),
+            MagicMock(title="Control Link", link="https://example.com/\x00\x1bpath", description="Desc 4", get=lambda k, default=None: {"title": "Control Link", "link": "https://example.com/\x00\x1bpath"}.get(k, default)),
+            MagicMock(title="None Link", link=None, description="Desc 5", get=lambda k, default=None: {"title": "None Link", "link": None}.get(k, default)),
+        ]
+
+        authorized_url = list(digest.ALLOWED_FEEDS)[0]
+        articles = digest.fetch_from_feed(authorized_url, "Authorized", limit=5)
+
+        self.assertEqual(len(articles), 5)
+        self.assertEqual(articles[0]["link"], "https://example.com/art1")
+        self.assertEqual(articles[1]["link"], "")
+        self.assertEqual(articles[2]["link"], "")
+        self.assertEqual(articles[3]["link"], "https://example.com/path")
+        self.assertEqual(articles[4]["link"], "")
+
     def test_process_llm_articles_and_fetch_from_feed_handle_none_values(self):
         # Test process_llm_articles with None values for summary and category angles
         articles = [{"title": "T1", "link": "http://l1", "source": "S1", "summary": "Sum1"}]

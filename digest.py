@@ -421,10 +421,15 @@ def fetch_from_feed(url, source_name, limit=3):
             # Optimization: Use max_len=400 to avoid processing large RSS summaries.
             # We only use ~300 for classification and summaries are not in the final email.
             summary = clean_text(raw_summary, max_len=400)
+            # Security: Validate and sanitize entry link schemes and control characters at the ingestion boundary
+            raw_link = entry.get("link")
+            link = clean_text(raw_link, max_len=500)
+            if not link.lower().startswith(("http://", "https://")):
+                link = ""
             # Security: Sanitize all fields to prevent null byte collisions in batch processing
             articles.append({
                 "title": clean_text(entry.get("title"), max_len=200),
-                "link":  clean_text(entry.get("link"), max_len=500),
+                "link":  link,
                 "summary": summary,
                 "source": clean_source,
             })
